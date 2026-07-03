@@ -22,8 +22,6 @@ COPY --from=builder /app/shared /app/shared
 COPY --from=builder /app/backend /app/backend
 COPY --from=builder /app/package.json /app/package.json
 
-RUN chmod +x /app/backend/scripts/docker-start.sh
-
 EXPOSE 4000
 
-CMD ["/app/backend/scripts/docker-start.sh"]
+CMD ["node", "dist/index.js"]

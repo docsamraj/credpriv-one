@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { execSync } from 'child_process';
 import { errorHandler } from './utils/response';
 import authRoutes from './routes/auth.routes';
 import providerRoutes from './routes/provider.routes';
@@ -50,6 +52,26 @@ app.use(errorHandler);
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`CredPriv One API running on 0.0.0.0:${PORT}`);
   console.log(`Health check: http://0.0.0.0:${PORT}/health`);
+
+  // Run migrations AFTER server starts so Railway healthcheck passes immediately
+  if (!process.env.DATABASE_URL) {
+    console.warn('WARNING: DATABASE_URL is not set — link Postgres in Railway Variables');
+    return;
+  }
+
+  setImmediate(() => {
+    try {
+      console.log('Running database migrations...');
+      execSync('npx prisma migrate deploy', {
+        stdio: 'inherit',
+        cwd: path.join(__dirname, '..'),
+        env: process.env,
+      });
+      console.log('Migrations applied successfully.');
+    } catch (error) {
+      console.error('Migration failed (server still running for /health):', error);
+    }
+  });
 });
 
 export default app;

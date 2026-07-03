@@ -164,6 +164,11 @@ export default function ProviderDashboard() {
 
       <div className="section-header">
         <h2>Provider Dashboard</h2>
+        {process.env.NEXT_PUBLIC_BUILD_SHA && (
+          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginRight: 'auto', marginLeft: '1rem' }}>
+            build {process.env.NEXT_PUBLIC_BUILD_SHA.slice(0, 7)}
+          </span>
+        )}
         <button
           type="button"
           className="btn btn-primary"

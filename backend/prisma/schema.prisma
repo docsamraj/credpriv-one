@@ -1,0 +1,520 @@
+// CredPriv One — Database Schema
+// PostgreSQL via Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth & RBAC ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  roles              UserRole[]
+  provider           Provider?
+  committeeMembers   CommitteeMember[]
+  committeeDecisions CommitteeDecision[]
+  auditLogs          AuditLog[]
+  tasks              Task[]              @relation("TaskAssignee")
+  notifications      Notification[]
+  verificationRequests VerificationRequest[] @relation("VerifiedBy")
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // PROVIDER, CREDENTIALING_STAFF, etc.
+  displayName String
+  description String?
+  permissions Json     @default("[]") // Array of permission strings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String   // Role name enum value
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+// ─── Provider & Profile ────────────────────────────────────────────────────────
+
+model Provider {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  npi       String?  @unique
+  licenseNo String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile      ProviderProfile?
+  applications Application[]
+  credentials  Credential[]
+  documents    Document[]
+  privileges   Privilege[]
+  monitoringEvents MonitoringEvent[]
+
+  @@map("providers")
+}
+
+model ProviderProfile {
+  id              String    @id @default(cuid())
+  providerId      String    @unique
+  middleName      String?
+  dateOfBirth     DateTime?
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  departmentId    String?
+  specialtyId     String?
+  employmentType  String?   // FULL_TIME, PART_TIME, LOCUM, etc.
+  startDate       DateTime?
+  bio             String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  provider   Provider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id])
+  specialty  Specialty?  @relation(fields: [specialtyId], references: [id])
+
+  @@map("provider_profiles")
+}
+
+// ─── Applications & Lifecycle ────────────────────────────────────────────────
+
+model Application {
+  id              String   @id @default(cuid())
+  providerId      String
+  type            String   // INITIAL_APPOINTMENT, REAPPOINTMENT, etc.
+  status          String   @default("DRAFT")
+  currentStage    String?
+  submittedAt     DateTime?
+  committeeReady  Boolean  @default(false)
+  committeeReadyAt DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  provider         Provider          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  committeeReviews CommitteeReview[]
+  tasks            Task[]
+
+  @@index([status])
+  @@index([providerId])
+  @@map("applications")
+}
+
+// ─── Credentials & Documents ─────────────────────────────────────────────────
+
+model Credential {
+  id           String    @id @default(cuid())
+  providerId   String
+  type         String    // LICENSE, DEGREE, TRAINING, etc.
+  title        String
+  issuingBody  String?
+  identifier   String?   // license number, cert number
+  issueDate    DateTime?
+  expiryDate   DateTime?
+  status       String    @default("PENDING")
+  verifiedAt   DateTime?
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  provider             Provider              @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  documents            Document[]
+  verificationRequests VerificationRequest[]
+
+  @@index([providerId])
+  @@index([expiryDate])
+  @@index([status])
+  @@map("credentials")
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  providerId   String
+  credentialId String?
+  applicationId String?
+  name         String
+  type         String   // LICENSE, DEGREE, IDENTITY, etc.
+  filePath     String
+  mimeType     String?
+  fileSize     Int?
+  ocrData      Json?    // Extracted OCR fields
+  uploadedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  provider   Provider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  credential Credential? @relation(fields: [credentialId], references: [id])
+
+  @@index([providerId])
+  @@map("documents")
+}
+
+model VerificationRequest {
+  id            String    @id @default(cuid())
+  credentialId  String
+  status        String    @default("PENDING")
+  source        String?   // Primary source name/contact
+  sourceMethod  String?   // PHONE, EMAIL, PORTAL, etc.
+  requestedAt   DateTime  @default(now())
+  completedAt   DateTime?
+  verifiedById  String?
+  remarks       String?
+  metadata      Json      @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  credential Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  verifiedBy User?      @relation("VerifiedBy", fields: [verifiedById], references: [id])
+
+  @@index([status])
+  @@index([credentialId])
+  @@map("verification_requests")
+}
+
+// ─── Privileging ───────────────────────────────────────────────────────────────
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String?  @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  specialties      Specialty[]
+  providerProfiles ProviderProfile[]
+  privilegeCategories PrivilegeCategory[]
+  procedures       Procedure[]
+
+  @@map("departments")
+}
+
+model Specialty {
+  id           String   @id @default(cuid())
+  name         String
+  code         String?
+  departmentId String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department       Department?       @relation(fields: [departmentId], references: [id])
+  providerProfiles ProviderProfile[]
+  requiredDocuments RequiredDocument[]
+
+  @@unique([name, departmentId])
+  @@map("specialties")
+}
+
+model PrivilegeCategory {
+  id           String   @id @default(cuid())
+  name         String
+  departmentId String?
+  description  String?
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department? @relation(fields: [departmentId], references: [id])
+  privileges Privilege[]
+  procedures Procedure[]
+
+  @@map("privilege_categories")
+}
+
+model Procedure {
+  id           String   @id @default(cuid())
+  name         String
+  code         String?
+  departmentId String?
+  categoryId   String?
+  description  String?
+  privilegeLevel String? // FULL, LIMITED, SUPERVISED, etc.
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department?       @relation(fields: [departmentId], references: [id])
+  category   PrivilegeCategory? @relation(fields: [categoryId], references: [id])
+  privileges Privilege[]
+
+  @@map("procedures")
+}
+
+model Privilege {
+  id           String    @id @default(cuid())
+  providerId   String
+  procedureId  String?
+  categoryId   String?
+  name         String
+  level        String?   // FULL, LIMITED, SUPERVISED, TEMPORARY
+  status       String    @default("REQUESTED")
+  grantedAt    DateTime?
+  expiresAt    DateTime?
+  deniedAt     DateTime?
+  denialReason String?
+  isTemporary  Boolean   @default(false)
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  provider  Provider           @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  procedure Procedure?         @relation(fields: [procedureId], references: [id])
+  category  PrivilegeCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([providerId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("privileges")
+}
+
+// ─── Committee Governance ──────────────────────────────────────────────────────
+
+model Committee {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // CREDENTIALING, MEC, BOARD, DEPARTMENT
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members  CommitteeMember[]
+  meetings CommitteeMeeting[]
+
+  @@map("committees")
+}
+
+model CommitteeMember {
+  id          String    @id @default(cuid())
+  committeeId String
+  userId      String
+  role        String?   // CHAIR, MEMBER, SECRETARY
+  joinedAt    DateTime  @default(now())
+  leftAt      DateTime?
+  isActive    Boolean   @default(true)
+
+  committee Committee @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([committeeId, userId])
+  @@map("committee_members")
+}
+
+model CommitteeMeeting {
+  id          String    @id @default(cuid())
+  committeeId String
+  title       String
+  scheduledAt DateTime
+  location    String?
+  status      String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  agenda      String?
+  minutes     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  committee Committee         @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  reviews   CommitteeReview[]
+
+  @@index([scheduledAt])
+  @@map("committee_meetings")
+}
+
+model CommitteeReview {
+  id            String   @id @default(cuid())
+  meetingId     String?
+  applicationId String
+  status        String   @default("PENDING") // PENDING, IN_REVIEW, COMPLETED
+  aiSummary     Json?    // AI-generated case summary
+  discussionNotes String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  meeting     CommitteeMeeting?  @relation(fields: [meetingId], references: [id])
+  application Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  decisions   CommitteeDecision[]
+
+  @@index([applicationId])
+  @@map("committee_reviews")
+}
+
+model CommitteeDecision {
+  id           String   @id @default(cuid())
+  reviewId     String
+  decisionType String   // APPROVE, DENY, DEFER, RETURN_FOR_INFO, GRANT_TEMPORARY
+  rationale    String?
+  decidedById  String
+  decidedAt    DateTime @default(now())
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  review    CommitteeReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  decidedBy User            @relation(fields: [decidedById], references: [id])
+
+  @@map("committee_decisions")
+}
+
+// ─── Monitoring (OPPE/FPPE starter) ────────────────────────────────────────────
+
+model MonitoringEvent {
+  id          String    @id @default(cuid())
+  providerId  String
+  type        String    // OPPE, FPPE, PEER_REVIEW, INCIDENT, etc.
+  title       String
+  description String?
+  eventDate   DateTime
+  status      String    @default("OPEN")
+  severity    String?   // LOW, MEDIUM, HIGH, CRITICAL
+  outcome     String?
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([type])
+  @@map("monitoring_events")
+}
+
+// ─── Tasks & Notifications ───────────────────────────────────────────────────
+
+model Task {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  status        String    @default("PENDING")
+  priority      String    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  assigneeId    String?
+  applicationId String?
+  dueDate       DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  application Application? @relation(fields: [applicationId], references: [id])
+
+  @@index([assigneeId])
+  @@index([status])
+  @@map("tasks")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  channel   String    @default("IN_APP") // EMAIL, SMS, IN_APP
+  title     String
+  message   String
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  metadata  Json      @default("{}")
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─── Admin Configuration ───────────────────────────────────────────────────────
+
+model RequiredDocument {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // Document type enum
+  role        String?  // Target role
+  specialtyId String?
+  isRequired  Boolean  @default(true)
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  specialty Specialty? @relation(fields: [specialtyId], references: [id])
+
+  @@map("required_documents")
+}
+
+model WorkflowStage {
+  id          String   @id @default(cuid())
+  name        String
+  order       Int
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([order])
+  @@map("workflow_stages")
+}
+
+model NotificationRule {
+  id        String   @id @default(cuid())
+  name      String
+  event     String   // APPLICATION_SUBMITTED, CREDENTIAL_EXPIRING, etc.
+  channel   String   // EMAIL, SMS, IN_APP
+  template  String?
+  daysBefore Int?    // For expiry reminders
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_rules")
+}
+
+// ─── Audit ─────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String   // CREATE, UPDATE, DELETE, SUBMIT, VERIFY, DECIDE, etc.
+  entityType String   // User, Provider, Credential, Privilege, etc.
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// TODO: Multi-tenant support — add Hospital/Tenant model with tenantId on all entities
+// TODO: Integration webhooks — add WebhookSubscription model for HIS/EMR/HRIS

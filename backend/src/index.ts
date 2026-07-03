@@ -1,0 +1,55 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { errorHandler } from './utils/response';
+import authRoutes from './routes/auth.routes';
+import providerRoutes from './routes/provider.routes';
+import applicationRoutes from './routes/application.routes';
+import credentialRoutes from './routes/credential.routes';
+import committeeRoutes from './routes/committee.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import adminRoutes from './routes/admin.routes';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+
+// Middleware
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Health check — required for Railway
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'credpriv-one-api',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+  });
+});
+
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/providers', providerRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/credentials', credentialRoutes);
+app.use('/api/committees', committeeRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin', adminRoutes);
+
+// 404 handler
+app.use((_req, res) => {
+  res.status(404).json({ success: false, error: 'Route not found' });
+});
+
+// Error handler
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(`CredPriv One API running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+});
+
+export default app;

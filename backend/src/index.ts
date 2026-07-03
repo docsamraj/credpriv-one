@@ -47,9 +47,9 @@ app.use((_req, res) => {
 // Error handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`CredPriv One API running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`CredPriv One API running on 0.0.0.0:${PORT}`);
+  console.log(`Health check: http://0.0.0.0:${PORT}/health`);
 });
 
 export default app;

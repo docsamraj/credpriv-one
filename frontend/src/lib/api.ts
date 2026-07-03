@@ -33,6 +33,38 @@ export async function api<T>(endpoint: string, options: ApiOptions = {}): Promis
   return data.data as T;
 }
 
+export async function uploadFile<T>(
+  endpoint: string,
+  file: File,
+  fields: Record<string, string> = {}
+): Promise<T> {
+  const formData = new FormData();
+  formData.append('file', file);
+  for (const [key, value] of Object.entries(fields)) {
+    formData.append(key, value);
+  }
+
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  const res = await fetch(`${API_URL}${endpoint}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Upload failed');
+  }
+
+  return data.data as T;
+}
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('token');
@@ -47,7 +79,12 @@ export function clearToken() {
   localStorage.removeItem('user');
 }
 
-export function getUser(): { roles: string[]; firstName: string; lastName: string } | null {
+export function getUser(): {
+  roles: string[];
+  firstName: string;
+  lastName: string;
+  providerId?: string;
+} | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem('user');
   return raw ? JSON.parse(raw) : null;

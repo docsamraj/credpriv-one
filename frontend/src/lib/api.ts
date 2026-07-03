@@ -1,4 +1,9 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Browser uses same-origin /api/* (proxied by Next.js rewrites at runtime).
+// SSR uses BACKEND_URL or NEXT_PUBLIC_API_URL.
+const API_URL =
+  typeof window !== 'undefined'
+    ? ''
+    : process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export interface ApiOptions {
   method?: string;

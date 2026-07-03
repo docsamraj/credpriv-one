@@ -11,12 +11,26 @@
 The backend depends on `@credpriv/shared`. Railway must see the full monorepo.
 If Root Directory is `backend`, the build fails with `cd ../shared: No such file or directory`.
 
+### Frontend (`@credpriv/frontend`) — REQUIRED settings
+
+| Setting | Value |
+|---------|-------|
+| **Root Directory** | `/` (repo root — **NOT** `frontend`) |
+| **Config file** | `frontend/railway.toml` |
+| **Builder** | Dockerfile (`Dockerfile.frontend`) |
+
+The frontend depends on `@credpriv/shared`. Root Directory must be `/` so the Docker build sees the full monorepo.
+
 ### Frontend variables
 
 ```env
+BACKEND_URL=https://credprivbackend-production.up.railway.app
 NEXT_PUBLIC_API_URL=https://credprivbackend-production.up.railway.app
 NODE_ENV=production
 ```
+
+`BACKEND_URL` is used at **runtime** by Next.js API rewrites (browser calls `/api/*` on the frontend domain).
+Set both vars, then **Redeploy** after any frontend code change.
 
 Public URL: `https://credpriv-production.up.railway.app`
 

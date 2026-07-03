@@ -5,6 +5,7 @@
 | Setting | Value |
 |---------|-------|
 | **Root Directory** | `/` (repo root — **NOT** `backend`) |
+| **Config file** | `backend/railway.toml` (auto-detected) |
 | **Builder** | Dockerfile (`Dockerfile.backend`) |
 
 The backend depends on `@credpriv/shared`. Railway must see the full monorepo.

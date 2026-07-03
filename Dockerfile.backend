@@ -2,20 +2,18 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-COPY shared/package.json shared/
-COPY backend/package.json backend/
-COPY frontend/package.json frontend/
+# Railway sets NODE_ENV=production by default, which skips devDependencies
+# (typescript, prisma CLI, etc.) needed for the build.
+ENV NODE_ENV=development
+
+COPY . .
 
 RUN npm ci --ignore-scripts
-
-COPY shared/ shared/
-COPY backend/ backend/
-
 RUN npm run build --workspace=@credpriv/shared
 RUN npm run db:generate --workspace=@credpriv/backend
 RUN npm run build --workspace=@credpriv/backend
 
+# Production runtime image
 FROM node:20-alpine AS runner
 WORKDIR /app/backend
 
@@ -27,5 +25,8 @@ COPY --from=builder /app/backend /app/backend
 COPY --from=builder /app/package.json /app/package.json
 
 EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+  CMD wget -qO- http://localhost:${PORT:-4000}/health || exit 1
 
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

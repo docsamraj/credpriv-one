@@ -9,9 +9,7 @@ ENV NODE_ENV=development
 COPY . .
 
 RUN npm ci --ignore-scripts
-RUN npm run build --workspace=@credpriv/shared
-RUN npm run db:generate --workspace=@credpriv/backend
-RUN npm run build --workspace=@credpriv/backend
+RUN npm run build:backend
 
 # Production runtime image
 FROM node:20-alpine AS runner

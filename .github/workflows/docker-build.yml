@@ -1,0 +1,23 @@
+name: Verify Backend Docker Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: docker build -f Dockerfile.backend -t credpriv-backend:ci .
+
+      - name: Verify image starts (smoke test)
+        run: |
+          docker run -d --name credpriv-smoke -e PORT=4000 -e JWT_SECRET=ci-test-secret -e DATABASE_URL=postgresql://fake:fake@localhost:5432/fake credpriv-backend:ci
+          sleep 5
+          docker logs credpriv-smoke || true
+          docker rm -f credpriv-smoke

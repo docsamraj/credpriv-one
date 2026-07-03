@@ -5,7 +5,13 @@ build
 .git
 .env
 .env.*
+**/.env
+**/.env.*
 *.log
 docker-compose.yml
 frontend/.next
 backend/uploads
+README.md
+RAILWAY.md
+RCA-CAPA.md
+.github

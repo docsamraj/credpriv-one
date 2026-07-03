@@ -11,6 +11,15 @@
 The backend depends on `@credpriv/shared`. Railway must see the full monorepo.
 If Root Directory is `backend`, the build fails with `cd ../shared: No such file or directory`.
 
+### Frontend variables
+
+```env
+NEXT_PUBLIC_API_URL=https://credprivbackend-production.up.railway.app
+NODE_ENV=production
+```
+
+Public URL: `https://credpriv-production.up.railway.app`
+
 ### Backend variables (Raw Editor)
 
 ```env
@@ -18,21 +27,8 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 NODE_ENV=production
 JWT_SECRET=your-secret-here
 JWT_EXPIRES_IN=7d
-CORS_ORIGIN=https://YOUR-FRONTEND-URL.up.railway.app
+CORS_ORIGIN=https://credpriv-production.up.railway.app
 UPLOAD_DIR=./uploads
-```
-
-## Frontend (`@credpriv/frontend`)
-
-| Setting | Value |
-|---------|-------|
-| **Root Directory** | `frontend` |
-
-### Frontend variables
-
-```env
-NEXT_PUBLIC_API_URL=https://YOUR-BACKEND-URL.up.railway.app
-NODE_ENV=production
 ```
 
 ## After deploy

@@ -7,7 +7,7 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
-    "build": "npm run build --workspace=shared && npm run build --workspace=backend && npm run build --workspace=frontend",
+    "build": "npm run build --workspace=@credpriv/shared && npm run db:generate --workspace=@credpriv/backend && npm run build --workspace=@credpriv/backend && npm run build --workspace=@credpriv/frontend",
     "db:generate": "npm run db:generate --workspace=backend",
     "db:migrate": "npm run db:migrate --workspace=backend",
     "db:push": "npm run db:push --workspace=backend",

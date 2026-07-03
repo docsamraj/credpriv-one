@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
 import { paramId } from '../utils/params';
@@ -24,7 +23,7 @@ export async function createAuditLog(ctx: AuditContext, req?: Request) {
         newValue: ctx.newValue ? JSON.parse(JSON.stringify(ctx.newValue)) : undefined,
         ipAddress: req?.ip || req?.socket?.remoteAddress,
         userAgent: req?.headers['user-agent'],
-        metadata: (ctx.metadata || {}) as Prisma.InputJsonValue,
+        metadata: JSON.parse(JSON.stringify(ctx.metadata || {})),
       },
     });
   } catch (err) {

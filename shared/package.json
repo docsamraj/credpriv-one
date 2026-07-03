@@ -6,9 +6,12 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "dev": "tsc --watch"
   },
-  "devDependencies": {
+  "dependencies": {
     "typescript": "^5.7.2"
+  },
+  "devDependencies": {
   }
 }

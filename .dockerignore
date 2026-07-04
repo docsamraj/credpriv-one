@@ -2,7 +2,8 @@ node_modules
 .next
 .git
 *.md
-backend
-shared
 scripts
 .github
+backend/dist
+backend/prisma
+backend/src

@@ -8,41 +8,49 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding CredPriv One database...');
 
+  const staffTable = await prisma.$queryRaw<{ exists: boolean }[]>`
+    SELECT EXISTS (
+      SELECT FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'staff_categories'
+    ) AS "exists"
+  `;
+  if (!staffTable[0]?.exists) {
+    console.error('Missing staff_categories table. Run first: npx prisma migrate deploy');
+    process.exit(1);
+  }
+
   const { categoryIds, subtypeIds } = await seedStaffCatalog(prisma);
 
-  // Departments
   const cardiology = await prisma.department.upsert({
     where: { name: 'Cardiology' },
     update: {},
     create: { name: 'Cardiology', code: 'CARD', description: 'Cardiology & Cardiac Surgery' },
   });
 
-  const surgery = await prisma.department.upsert({
+  await prisma.department.upsert({
     where: { name: 'General Surgery' },
     update: {},
     create: { name: 'General Surgery', code: 'SURG' },
   });
 
-  const emergency = await prisma.department.upsert({
+  await prisma.department.upsert({
     where: { name: 'Emergency Medicine' },
     update: {},
     create: { name: 'Emergency Medicine', code: 'EM' },
   });
 
-  // Specialties
   const interventional = await prisma.specialty.upsert({
     where: { name_departmentId: { name: 'Interventional Cardiology', departmentId: cardiology.id } },
     update: {},
     create: { name: 'Interventional Cardiology', code: 'IC', departmentId: cardiology.id },
   });
 
-  const cardiacSurgery = await prisma.specialty.upsert({
+  await prisma.specialty.upsert({
     where: { name_departmentId: { name: 'Cardiac Surgery', departmentId: cardiology.id } },
     update: {},
     create: { name: 'Cardiac Surgery', code: 'CS', departmentId: cardiology.id },
   });
 
-  // Workflow stages
   const stages = [
     { name: 'Draft', order: 1 },
     { name: 'Submitted', order: 2 },
@@ -61,7 +69,6 @@ async function main() {
     });
   }
 
-  // Committees
   const credCommittee = await prisma.committee.upsert({
     where: { id: 'seed-cred-committee' },
     update: {},
@@ -73,61 +80,57 @@ async function main() {
     },
   });
 
-  const mec = await prisma.committee.upsert({
+  await prisma.committee.upsert({
     where: { id: 'seed-mec' },
     update: {},
-    create: {
-      id: 'seed-mec',
-      name: 'Medical Executive Committee',
-      type: 'MEC',
-    },
+    create: { id: 'seed-mec', name: 'Medical Executive Committee', type: 'MEC' },
   });
 
-  const board = await prisma.committee.upsert({
+  await prisma.committee.upsert({
     where: { id: 'seed-board' },
     update: {},
-    create: {
-      id: 'seed-board',
-      name: 'Board of Directors',
-      type: 'BOARD',
-    },
+    create: { id: 'seed-board', name: 'Board of Directors', type: 'BOARD' },
   });
 
-  // Privilege categories & procedures
-  const cathCategory = await prisma.privilegeCategory.create({
-    data: {
-      name: 'Cardiac Catheterization',
-      departmentId: cardiology.id,
-      procedures: {
-        create: [
-          { name: 'Diagnostic Cardiac Catheterization', code: 'CATH-DX', privilegeLevel: 'FULL' },
-          { name: 'Percutaneous Coronary Intervention (PCI)', code: 'CATH-PCI', privilegeLevel: 'FULL' },
-          { name: 'Structural Heart Intervention', code: 'CATH-STRUCT', privilegeLevel: 'LIMITED' },
-        ],
+  const existingCathCategory = await prisma.privilegeCategory.findFirst({
+    where: { name: 'Cardiac Catheterization', departmentId: cardiology.id },
+  });
+  if (!existingCathCategory) {
+    await prisma.privilegeCategory.create({
+      data: {
+        name: 'Cardiac Catheterization',
+        departmentId: cardiology.id,
+        procedures: {
+          create: [
+            { name: 'Diagnostic Cardiac Catheterization', code: 'CATH-DX', privilegeLevel: 'FULL' },
+            { name: 'Percutaneous Coronary Intervention (PCI)', code: 'CATH-PCI', privilegeLevel: 'FULL' },
+            { name: 'Structural Heart Intervention', code: 'CATH-STRUCT', privilegeLevel: 'LIMITED' },
+          ],
+        },
       },
-    },
-  });
-
-  // Required documents
-  const docTypes = [
-    { name: 'Medical License', type: 'LICENSE', sortOrder: 1 },
-    { name: 'Medical Degree', type: 'DEGREE', sortOrder: 2 },
-    { name: 'Board Certification', type: 'CERTIFICATION', sortOrder: 3 },
-    { name: 'Malpractice Insurance', type: 'INSURANCE', sortOrder: 4 },
-    { name: 'Government ID', type: 'IDENTITY', sortOrder: 5 },
-    { name: 'DEA Certificate', type: 'CERTIFICATION', sortOrder: 6 },
-  ];
-
-  for (const doc of docTypes) {
-    await prisma.requiredDocument.create({
-      data: { ...doc, specialtyId: interventional.id },
     });
   }
 
-  // Demo users
+  const legacyDocCount = await prisma.requiredDocument.count({
+    where: { specialtyId: interventional.id, staffCategoryId: null },
+  });
+  if (legacyDocCount === 0) {
+    const docTypes = [
+      { name: 'Medical License', type: 'LICENSE', sortOrder: 1 },
+      { name: 'Medical Degree', type: 'DEGREE', sortOrder: 2 },
+      { name: 'Board Certification', type: 'CERTIFICATION', sortOrder: 3 },
+      { name: 'Malpractice Insurance', type: 'INSURANCE', sortOrder: 4 },
+      { name: 'Government ID', type: 'IDENTITY', sortOrder: 5 },
+      { name: 'DEA Certificate', type: 'CERTIFICATION', sortOrder: 6 },
+    ];
+    await prisma.requiredDocument.createMany({
+      data: docTypes.map((doc) => ({ ...doc, specialtyId: interventional.id })),
+    });
+  }
+
   const passwordHash = await bcrypt.hash('Password123!', 12);
 
-  const admin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'admin@credpriv.hospital' },
     update: {},
     create: {
@@ -139,7 +142,7 @@ async function main() {
     },
   });
 
-  const staff = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'staff@credpriv.hospital' },
     update: {},
     create: {
@@ -163,8 +166,12 @@ async function main() {
     },
   });
 
-  await prisma.committeeMember.create({
-    data: { committeeId: credCommittee.id, userId: committeeMember.id, role: 'CHAIR' },
+  await prisma.committeeMember.upsert({
+    where: {
+      committeeId_userId: { committeeId: credCommittee.id, userId: committeeMember.id },
+    },
+    update: { role: 'CHAIR', isActive: true },
+    create: { committeeId: credCommittee.id, userId: committeeMember.id, role: 'CHAIR' },
   });
 
   const providerUser = await prisma.user.upsert({
@@ -196,12 +203,44 @@ async function main() {
     include: { provider: true },
   });
 
-  // Sample credentials for provider
-  if (providerUser.provider) {
+  let provider = providerUser.provider;
+  if (!provider) {
+    provider = await prisma.provider.upsert({
+      where: { userId: providerUser.id },
+      update: {},
+      create: {
+        userId: providerUser.id,
+        npi: '1234567890',
+        licenseNo: 'MED-2024-001',
+      },
+    });
+  }
+
+  await prisma.providerProfile.upsert({
+    where: { providerId: provider.id },
+    update: {
+      staffCategoryId: categoryIds.DOCTOR,
+      staffSubtypeId: subtypeIds[DoctorSubtype.FULL_TIME_CONSULTANT],
+      departmentId: cardiology.id,
+      specialtyId: interventional.id,
+    },
+    create: {
+      providerId: provider.id,
+      departmentId: cardiology.id,
+      specialtyId: interventional.id,
+      staffCategoryId: categoryIds.DOCTOR,
+      staffSubtypeId: subtypeIds[DoctorSubtype.FULL_TIME_CONSULTANT],
+      phone: '+91-9876543210',
+      employmentType: 'FULL_TIME',
+    },
+  });
+
+  const credentialCount = await prisma.credential.count({ where: { providerId: provider.id } });
+  if (credentialCount === 0) {
     await prisma.credential.createMany({
       data: [
         {
-          providerId: providerUser.provider.id,
+          providerId: provider.id,
           type: 'LICENSE',
           title: 'State Medical License',
           issuingBody: 'Medical Council',
@@ -212,7 +251,7 @@ async function main() {
           verifiedAt: new Date(),
         },
         {
-          providerId: providerUser.provider.id,
+          providerId: provider.id,
           type: 'CERTIFICATION',
           title: 'Board Certification - Cardiology',
           issuingBody: 'American Board of Internal Medicine',
@@ -221,10 +260,13 @@ async function main() {
         },
       ],
     });
+  }
 
+  const appCount = await prisma.application.count({ where: { providerId: provider.id } });
+  if (appCount === 0) {
     await prisma.application.create({
       data: {
-        providerId: providerUser.provider.id,
+        providerId: provider.id,
         type: 'INITIAL_APPOINTMENT',
         status: 'SUBMITTED',
         workflowPhase: 'DOCUMENT_UPLOAD',
@@ -236,14 +278,16 @@ async function main() {
     });
   }
 
-  // Notification rules
-  await prisma.notificationRule.createMany({
-    data: [
-      { name: 'Credential Expiry 30 days', event: 'CREDENTIAL_EXPIRING', channel: 'EMAIL', daysBefore: 30 },
-      { name: 'Credential Expiry 60 days', event: 'CREDENTIAL_EXPIRING', channel: 'EMAIL', daysBefore: 60 },
-      { name: 'Application Status Change', event: 'APPLICATION_STATUS_CHANGED', channel: 'IN_APP' },
-    ],
-  });
+  const ruleCount = await prisma.notificationRule.count();
+  if (ruleCount === 0) {
+    await prisma.notificationRule.createMany({
+      data: [
+        { name: 'Credential Expiry 30 days', event: 'CREDENTIAL_EXPIRING', channel: 'EMAIL', daysBefore: 30 },
+        { name: 'Credential Expiry 60 days', event: 'CREDENTIAL_EXPIRING', channel: 'EMAIL', daysBefore: 60 },
+        { name: 'Application Status Change', event: 'APPLICATION_STATUS_CHANGED', channel: 'IN_APP' },
+      ],
+    });
+  }
 
   console.log('Seed complete!');
   console.log('Demo accounts (password: Password123!):');
@@ -254,5 +298,8 @@ async function main() {
 }
 
 main()
-  .catch(console.error)
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

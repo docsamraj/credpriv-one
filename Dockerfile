@@ -3,12 +3,13 @@
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
-ENV NODE_ENV=development
-
 COPY package.json package-lock.json ./
 COPY frontend ./frontend
 COPY shared ./shared
 COPY backend/package.json ./backend/package.json
+
+# Remove nested lockfile — causes Next.js workspace root confusion
+RUN rm -f frontend/package-lock.json
 
 RUN npm ci --workspace=@credpriv/frontend --ignore-scripts
 
@@ -17,6 +18,8 @@ WORKDIR /app/frontend
 ARG RAILWAY_GIT_COMMIT_SHA=local
 ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
 
+# next build must run with NODE_ENV=production
+ENV NODE_ENV=production
 RUN rm -rf .next && npm run build
 
 FROM node:20-bookworm-slim AS runner

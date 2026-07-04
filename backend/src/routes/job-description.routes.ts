@@ -9,6 +9,7 @@ import { jobDescriptionService } from '../services/job-description.service';
 import { jobDescriptionParserService } from '../modules/ai/job-description-parser';
 import { isSupportedJobDescriptionFile } from '../modules/ai/document-text';
 import { asyncHandler, success, AppError } from '../utils/response';
+import { paramId } from '../utils/params';
 
 const router = Router();
 
@@ -48,6 +49,14 @@ router.get(
       categoryId: req.query.categoryId as string | undefined,
     });
     success(res, list);
+  })
+);
+
+router.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const jd = await jobDescriptionService.getById(paramId(req.params.id));
+    success(res, jd);
   })
 );
 

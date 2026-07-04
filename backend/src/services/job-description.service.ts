@@ -19,6 +19,19 @@ export class JobDescriptionService {
     });
   }
 
+  async getById(id: string) {
+    const jd = await prisma.jobDescription.findUnique({
+      where: { id },
+      include: {
+        subtype: true,
+        category: true,
+        items: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+      },
+    });
+    if (!jd) throw new AppError(404, 'Job description not found');
+    return jd;
+  }
+
   async publish(data: {
     categoryId: string;
     subtypeId: string;

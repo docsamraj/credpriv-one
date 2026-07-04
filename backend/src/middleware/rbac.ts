@@ -27,6 +27,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.COMMITTEE_MEMBER]: [
     'application.read', 'provider.read', 'credential.read',
     'committee.review', 'committee.decide', 'committee.meeting.read',
+    'job_description.manage',
   ],
   [UserRole.MEC_MEMBER]: [
     'application.read', 'provider.read', 'credential.read', 'privilege.read',

@@ -25,16 +25,30 @@ interface StaffCategory {
   subtypes: StaffSubtype[];
 }
 
+interface JobDescriptionItemRow {
+  id: string;
+  name: string;
+  code?: string;
+  description?: string;
+  defaultLevel: string;
+}
+
 interface JobDescriptionRow {
   id: string;
   title: string;
   clinicalUnit: string;
-  subtype: { name: string };
+  subtype: { name: string; id?: string };
   category: { name: string };
-  items: Array<{ id: string; name: string }>;
+  items: JobDescriptionItemRow[];
   sourceFileName?: string;
   aiParsedAt?: string;
 }
+
+const LEVEL_LABELS: Record<string, string> = {
+  FULL: 'Full',
+  UNDER_SUPERVISION: 'Under Supervision',
+  NONE: 'None',
+};
 
 interface ParseResponse {
   title: string;
@@ -67,6 +81,10 @@ export default function JobDescriptionsPanel() {
   const [preview, setPreview] = useState('');
   const [parsedBy, setParsedBy] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [viewJd, setViewJd] = useState<JobDescriptionRow | null>(null);
+  const [browseSubtypeId, setBrowseSubtypeId] = useState('');
+  const [browseUnit, setBrowseUnit] = useState('');
+  const [browseCategoryId, setBrowseCategoryId] = useState('');
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -99,6 +117,68 @@ export default function JobDescriptionsPanel() {
   }, [load]);
 
   const subtypes = categories.find((c) => c.id === categoryId)?.subtypes ?? [];
+  const browseSubtypes = categories.find((c) => c.id === browseCategoryId)?.subtypes ?? [];
+
+  async function openJobDescription(jd: JobDescriptionRow) {
+    try {
+      const full = await api<JobDescriptionRow>(`/api/job-descriptions/${jd.id}`);
+      setViewJd(full);
+    } catch {
+      setViewJd(jd);
+    }
+  }
+
+  async function browsePrivileges() {
+    if (!browseSubtypeId) {
+      showMsg('error', 'Select a role to browse');
+      return;
+    }
+    setLoading(true);
+    try {
+      const qs = browseUnit ? `?clinicalUnit=${encodeURIComponent(browseUnit)}` : '';
+      const jd = await api<JobDescriptionRow>(`/api/catalog/job-descriptions/${browseSubtypeId}${qs}`);
+      setViewJd(jd);
+    } catch (err) {
+      showMsg('error', err instanceof Error ? err.message : 'No job description for this role/unit');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function PrivilegeMatrixTable({ items }: { items: JobDescriptionItemRow[] }) {
+    if (items.length === 0) {
+      return <p style={{ color: 'var(--color-text-muted)' }}>No privilege items defined.</p>;
+    }
+    return (
+      <table className="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Privilege</th>
+            <th>Code</th>
+            <th>Default Level</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.id || i}>
+              <td>{i + 1}</td>
+              <td>
+                <strong>{item.name}</strong>
+                {item.description && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.description}</div>
+                )}
+              </td>
+              <td>{item.code || '—'}</td>
+              <td>
+                <span className="badge badge-info">{LEVEL_LABELS[item.defaultLevel] || item.defaultLevel}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
 
   function showMsg(type: 'success' | 'error', text: string) {
     setMessage({ type, text });
@@ -213,6 +293,38 @@ export default function JobDescriptionsPanel() {
       )}
 
       <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h3 style={{ marginBottom: '0.5rem' }}>Browse Privileges by Job Description</h3>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+          Look up the privilege matrix for any role and clinical unit.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+          <div className="form-group">
+            <label>Category</label>
+            <select className="form-input" value={browseCategoryId} onChange={(e) => { setBrowseCategoryId(e.target.value); setBrowseSubtypeId(''); }}>
+              <option value="">Select...</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Role</label>
+            <select className="form-input" value={browseSubtypeId} onChange={(e) => setBrowseSubtypeId(e.target.value)} disabled={!browseCategoryId}>
+              <option value="">Select...</option>
+              {browseSubtypes.map((s) => (
+                <option key={s.id} value={s.id}>{s.parentGroup ? `${s.parentGroup} — ` : ''}{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Clinical Unit</label>
+            <input className="form-input" placeholder="e.g. CTVS OT (optional)" value={browseUnit} onChange={(e) => setBrowseUnit(e.target.value)} />
+          </div>
+        </div>
+        <button type="button" className="btn btn-secondary" style={{ marginTop: '0.5rem' }} onClick={browsePrivileges} disabled={loading || !browseSubtypeId}>
+          View Privilege Matrix
+        </button>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '0.5rem' }}>Upload Job Description</h3>
         <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
           Upload a Word, PDF, or Excel job description. AI extracts privilege line items (Full / Under Supervision / None) for committee credentialing.
@@ -322,7 +434,7 @@ export default function JobDescriptionsPanel() {
         ) : (
           <table className="table">
             <thead>
-              <tr><th>Title</th><th>Role</th><th>Unit</th><th>Items</th><th>Source</th></tr>
+              <tr><th>Title</th><th>Role</th><th>Unit</th><th>Items</th><th>Source</th><th></th></tr>
             </thead>
             <tbody>
               {existing.map((jd) => (
@@ -332,12 +444,34 @@ export default function JobDescriptionsPanel() {
                   <td>{jd.clinicalUnit || '—'}</td>
                   <td>{jd.items.length}</td>
                   <td>{jd.sourceFileName || 'Seed'}</td>
+                  <td>
+                    <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => openJobDescription(jd)}>
+                      View Privileges
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {viewJd && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={() => setViewJd(null)}
+        >
+          <div className="card" style={{ width: '90%', maxWidth: 720, maxHeight: '90vh', overflow: 'auto', margin: '1rem' }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginBottom: '0.25rem' }}>{viewJd.title}</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+              {viewJd.category.name} · {viewJd.subtype.name}
+              {viewJd.clinicalUnit ? ` · ${viewJd.clinicalUnit}` : ''}
+            </p>
+            <PrivilegeMatrixTable items={viewJd.items} />
+            <button type="button" className="btn btn-secondary" style={{ marginTop: '1rem' }} onClick={() => setViewJd(null)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

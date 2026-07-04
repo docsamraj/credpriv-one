@@ -581,21 +581,27 @@ model StaffSubtype {
 }
 
 model JobDescription {
-  id          String   @id @default(cuid())
-  categoryId  String
-  subtypeId   String
-  title       String
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String    @id @default(cuid())
+  categoryId       String
+  subtypeId        String
+  clinicalUnit     String    @default("") // e.g. Surgery OT, CTVS OT, CSSD Unit
+  title            String
+  description      String?
+  sourceFileName   String?
+  sourceFilePath   String?
+  sourceMimeType   String?
+  extractedText    String?   @db.Text
+  aiParsedAt       DateTime?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   category     StaffCategory             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   subtype      StaffSubtype              @relation(fields: [subtypeId], references: [id], onDelete: Cascade)
   items        JobDescriptionItem[]
   applications Application[]
 
-  @@unique([subtypeId])
+  @@unique([subtypeId, clinicalUnit])
   @@map("job_descriptions")
 }
 

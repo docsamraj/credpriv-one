@@ -180,11 +180,12 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
     if (!subtypeId || !sub) continue;
 
     const jd = await prisma.jobDescription.upsert({
-      where: { subtypeId },
+      where: { subtypeId_clinicalUnit: { subtypeId, clinicalUnit: '' } },
       update: { title: template.title },
       create: {
         categoryId: categoryIds[sub.category],
         subtypeId,
+        clinicalUnit: '',
         title: template.title,
         description: `Standard privilege matrix for ${sub.name}`,
       },

@@ -15,16 +15,17 @@ export class CatalogService {
     });
   }
 
-  async getJobDescription(subtypeId: string) {
+  async getJobDescription(subtypeId: string, clinicalUnit?: string) {
+    const unit = (clinicalUnit || '').trim();
     const jd = await prisma.jobDescription.findFirst({
-      where: { subtypeId, isActive: true },
+      where: { subtypeId, clinicalUnit: unit, isActive: true },
       include: {
         items: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
         category: true,
         subtype: true,
       },
     });
-    if (!jd) throw new AppError(404, 'Job description not found for this role');
+    if (!jd) throw new AppError(404, 'Job description not found for this role and unit');
     return jd;
   }
 

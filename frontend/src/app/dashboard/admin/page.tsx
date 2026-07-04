@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
 
 interface Department {
   id: string;
@@ -40,6 +41,7 @@ export default function AdminDashboard() {
   }, []);
 
   const tabs = [
+    { id: 'job-descriptions', label: 'Job Descriptions' },
     { id: 'departments', label: 'Departments' },
     { id: 'specialties', label: 'Specialties' },
     { id: 'workflow', label: 'Workflow Stages' },
@@ -65,6 +67,8 @@ export default function AdminDashboard() {
           </button>
         ))}
       </div>
+
+      {activeTab === 'job-descriptions' && <JobDescriptionsPanel />}
 
       {activeTab === 'departments' && (
         <div className="card">

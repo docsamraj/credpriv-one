@@ -212,6 +212,21 @@ export interface AiFlag {
   field?: string;
 }
 
+export interface ParsedPrivilegeItem {
+  name: string;
+  code?: string;
+  description?: string;
+  defaultLevel: 'FULL' | 'UNDER_SUPERVISION' | 'NONE';
+}
+
+export interface JobDescriptionParseResult {
+  title: string;
+  clinicalUnit?: string;
+  items: ParsedPrivilegeItem[];
+  extractedTextPreview: string;
+  parsedBy: 'cloudflare' | 'heuristic';
+}
+
 export interface OcrExtractionResult {
   documentId: string;
   extractedFields: Record<string, string>;

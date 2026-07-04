@@ -14,6 +14,7 @@ import analyticsRoutes from './routes/analytics.routes';
 import adminRoutes from './routes/admin.routes';
 import documentRoutes from './routes/document.routes';
 import catalogRoutes from './routes/catalog.routes';
+import jobDescriptionRoutes from './routes/job-description.routes';
 
 dotenv.config();
 
@@ -64,6 +65,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/catalog', catalogRoutes);
+app.use('/api/job-descriptions', jobDescriptionRoutes);
 
 // 404 handler
 app.use((_req, res) => {

@@ -62,11 +62,14 @@ export class ApplicationService {
   async create(
     providerId: string,
     type: string,
-    opts?: { staffCategoryId?: string; staffSubtypeId?: string; jobDescriptionId?: string }
+    opts?: { staffCategoryId?: string; staffSubtypeId?: string; jobDescriptionId?: string; clinicalUnit?: string }
   ) {
     let jobDescriptionId = opts?.jobDescriptionId;
     if (opts?.staffSubtypeId && !jobDescriptionId) {
-      const jd = await prisma.jobDescription.findFirst({ where: { subtypeId: opts.staffSubtypeId } });
+      const unit = (opts.clinicalUnit || '').trim();
+      const jd = await prisma.jobDescription.findFirst({
+        where: { subtypeId: opts.staffSubtypeId, clinicalUnit: unit },
+      });
       jobDescriptionId = jd?.id;
     }
 

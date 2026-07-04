@@ -19,7 +19,10 @@ router.get(
 router.get(
   '/job-descriptions/:subtypeId',
   asyncHandler(async (req, res) => {
-    const jd = await catalogService.getJobDescription(paramId(req.params.subtypeId));
+    const jd = await catalogService.getJobDescription(
+      paramId(req.params.subtypeId),
+      req.query.clinicalUnit as string | undefined
+    );
     success(res, jd);
   })
 );

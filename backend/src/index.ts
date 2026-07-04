@@ -15,6 +15,7 @@ import adminRoutes from './routes/admin.routes';
 import documentRoutes from './routes/document.routes';
 import catalogRoutes from './routes/catalog.routes';
 import jobDescriptionRoutes from './routes/job-description.routes';
+import { seedStaffCatalog } from './lib/seed-staff-catalog';
 
 dotenv.config();
 
@@ -85,6 +86,17 @@ async function bootstrap() {
         env: process.env,
       });
       console.log('Migrations applied successfully.');
+
+      try {
+        const categoryCount = await prisma.staffCategory.count();
+        if (categoryCount === 0) {
+          console.log('Staff catalog empty — seeding categories, roles, and job descriptions...');
+          await seedStaffCatalog(prisma);
+          console.log('Staff catalog seeded.');
+        }
+      } catch (seedErr) {
+        console.warn('Staff catalog bootstrap skipped (run migrate deploy first):', seedErr);
+      }
     } catch (error) {
       console.error('Migration failed:', error);
     }

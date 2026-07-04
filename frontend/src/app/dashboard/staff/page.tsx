@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { X } from 'lucide-react';
+import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
 
 interface Queues {
   newApplications: number;
@@ -33,6 +34,7 @@ interface Application {
 }
 
 export default function StaffDashboard() {
+  const [activeTab, setActiveTab] = useState<'workflow' | 'job-descriptions'>('workflow');
   const [queues, setQueues] = useState<Queues | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +127,27 @@ export default function StaffDashboard() {
         )}
       </div>
 
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className={`btn ${activeTab === 'workflow' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('workflow')}
+        >
+          Application Workflow
+        </button>
+        <button
+          type="button"
+          className={`btn ${activeTab === 'job-descriptions' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('job-descriptions')}
+        >
+          Job Descriptions
+        </button>
+      </div>
+
+      {activeTab === 'job-descriptions' && <JobDescriptionsPanel />}
+
+      {activeTab === 'workflow' && (
+      <>
       <div className="queue-grid">
         <div className="queue-card">
           <div className="count">{queues?.newApplications ?? '—'}</div>
@@ -279,6 +302,8 @@ export default function StaffDashboard() {
             )}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

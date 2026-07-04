@@ -1,9 +1,10 @@
 import prisma from '../lib/prisma';
 import { AppError } from '../utils/response';
+import { seedStaffCatalog } from '../lib/seed-staff-catalog';
 
 export class CatalogService {
   async listCategories() {
-    return prisma.staffCategory.findMany({
+    let categories = await prisma.staffCategory.findMany({
       where: { isActive: true },
       include: {
         subtypes: {
@@ -13,6 +14,19 @@ export class CatalogService {
       },
       orderBy: { sortOrder: 'asc' },
     });
+
+    if (categories.length === 0) {
+      await seedStaffCatalog(prisma);
+      categories = await prisma.staffCategory.findMany({
+        where: { isActive: true },
+        include: {
+          subtypes: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+        },
+        orderBy: { sortOrder: 'asc' },
+      });
+    }
+
+    return categories;
   }
 
   async getJobDescription(subtypeId: string, clinicalUnit?: string) {

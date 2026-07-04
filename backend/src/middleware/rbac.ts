@@ -34,7 +34,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   ],
   [UserRole.ADMINISTRATOR]: [
     'application.read', 'provider.read', 'analytics.read',
-    'committee.read', 'audit.read',
+    'committee.read', 'audit.read', 'job_description.manage',
   ],
   [UserRole.QUALITY_ACCREDITATION]: [
     'application.read', 'provider.read', 'analytics.read',

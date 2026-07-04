@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { seedStaffCatalog } from './seed-catalog';
+import { seedStaffCatalog } from '../src/lib/seed-staff-catalog';
 import { DoctorSubtype } from '@credpriv/shared';
 
 const prisma = new PrismaClient();

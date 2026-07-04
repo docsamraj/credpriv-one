@@ -67,16 +67,31 @@ export default function JobDescriptionsPanel() {
   const [preview, setPreview] = useState('');
   const [parsedBy, setParsedBy] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const [cats, jds] = await Promise.all([
-      api<StaffCategory[]>('/api/catalog/categories'),
-      api<JobDescriptionRow[]>('/api/job-descriptions'),
-    ]);
-    setCategories(cats);
-    setExisting(jds);
+    setLoadingCatalog(true);
+    setLoadError(null);
+    try {
+      const [cats, jds] = await Promise.all([
+        api<StaffCategory[]>('/api/catalog/categories'),
+        api<JobDescriptionRow[]>('/api/job-descriptions'),
+      ]);
+      setCategories(cats);
+      setExisting(jds);
+      if (cats.length === 0) {
+        setLoadError('No staff categories found. Redeploy the backend or run: npx prisma migrate deploy && npx tsx prisma/seed.ts');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load catalog';
+      setLoadError(msg);
+      setCategories([]);
+    } finally {
+      setLoadingCatalog(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -188,6 +203,15 @@ export default function JobDescriptionsPanel() {
         </div>
       )}
 
+      {loadError && (
+        <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: 8, background: '#fef3c7', color: '#92400e', fontSize: '0.875rem' }}>
+          {loadError}
+          <button type="button" className="btn btn-secondary" style={{ marginLeft: '1rem', padding: '0.25rem 0.75rem' }} onClick={() => load()}>
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '0.5rem' }}>Upload Job Description</h3>
         <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
@@ -198,8 +222,8 @@ export default function JobDescriptionsPanel() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
           <div className="form-group">
             <label>Category</label>
-            <select className="form-input" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubtypeId(''); }}>
-              <option value="">Select...</option>
+            <select className="form-input" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubtypeId(''); }} disabled={loadingCatalog || categories.length === 0}>
+              <option value="">{loadingCatalog ? 'Loading...' : 'Select...'}</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>

@@ -5,5 +5,3 @@ node_modules
 scripts
 .github
 backend/dist
-backend/prisma
-backend/src

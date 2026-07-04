@@ -16,7 +16,9 @@ RUN npm ci --workspace=@credpriv/frontend --ignore-scripts
 WORKDIR /app/frontend
 
 ARG RAILWAY_GIT_COMMIT_SHA=local
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # next build must run with NODE_ENV=production
 ENV NODE_ENV=production

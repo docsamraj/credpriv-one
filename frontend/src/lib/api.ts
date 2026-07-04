@@ -1,14 +1,26 @@
-// Browser uses same-origin /api/* (proxied by Next.js rewrites at runtime).
-// SSR uses BACKEND_URL or NEXT_PUBLIC_API_URL.
+// Prefer NEXT_PUBLIC_API_URL (direct backend) — avoids broken Next.js rewrites when BACKEND_URL is unset.
 const API_URL =
-  typeof window !== 'undefined'
-    ? ''
-    : process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.BACKEND_URL ||
+  (typeof window !== 'undefined' ? '' : 'http://localhost:4000');
 
 export interface ApiOptions {
   method?: string;
   body?: unknown;
   token?: string | null;
+}
+
+async function parseResponse<T>(res: Response): Promise<{ ok: boolean; data: T; error?: string }> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      text.startsWith('Internal') || text.startsWith('<')
+        ? 'Cannot reach API server. Check NEXT_PUBLIC_API_URL and BACKEND_URL on the frontend service.'
+        : text.slice(0, 200) || `Request failed (${res.status})`
+    );
+  }
 }
 
 export async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
@@ -29,7 +41,7 @@ export async function api<T>(endpoint: string, options: ApiOptions = {}): Promis
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const data = await res.json();
+  const data = await parseResponse<{ success: boolean; data: T; error?: string }>(res);
 
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Request failed');
@@ -61,7 +73,7 @@ export async function uploadFile<T>(
     body: formData,
   });
 
-  const data = await res.json();
+  const data = await parseResponse<{ success: boolean; data: T; error?: string }>(res);
 
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Upload failed');

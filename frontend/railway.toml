@@ -1,19 +1,9 @@
-# Use Nixpacks (default) — Docker build hits Next.js prerender bug in CI.
-# Railway: Root Directory = frontend, remove custom Dockerfile builder.
-
-[phases.setup]
-nixPkgs = ["nodejs_20"]
-
-[phases.install]
-cmds = ["npm ci"]
-
-[phases.build]
-cmds = ["rm -rf .next", "npm run build"]
-
-[start]
-cmd = "npm start"
+# @credpriv/frontend — Root Directory MUST be "frontend"
+[build]
+builder = "NIXPACKS"
 
 [deploy]
+startCommand = "npm start"
 healthcheckPath = "/login"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"

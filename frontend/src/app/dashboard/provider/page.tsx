@@ -2,16 +2,64 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, uploadFile } from '@/lib/api';
-import { FileText, Upload, AlertTriangle, Clock, Check, X } from 'lucide-react';
+import { FileText, Upload, AlertTriangle, Clock, Check, X, Shield } from 'lucide-react';
+
+interface StaffSubtype {
+  id: string;
+  code: string;
+  name: string;
+  parentGroup?: string;
+}
+
+interface StaffCategory {
+  id: string;
+  code: string;
+  name: string;
+  subtypes: StaffSubtype[];
+}
+
+interface JobDescriptionItem {
+  id: string;
+  name: string;
+  code?: string;
+  defaultLevel: string;
+}
+
+interface JobDescription {
+  id: string;
+  title: string;
+  items: JobDescriptionItem[];
+}
+
+interface PrivilegeRequest {
+  id: string;
+  jobDescriptionItemId: string;
+  requestedLevel: string;
+  grantedLevel?: string;
+  jobDescriptionItem: JobDescriptionItem;
+}
 
 interface Application {
   id: string;
   type: string;
   status: string;
+  workflowPhase?: string;
   submittedAt?: string;
   createdAt: string;
   updatedAt: string;
   currentStage?: string;
+  staffCategoryId?: string;
+  staffSubtypeId?: string;
+  staffCategory?: { name: string; code: string };
+  staffSubtype?: { name: string; code: string };
+  jobDescription?: JobDescription;
+  privilegeRequests?: PrivilegeRequest[];
+}
+
+interface RequiredDoc {
+  id: string;
+  name: string;
+  type: string;
 }
 
 interface Document {
@@ -31,28 +79,49 @@ const STATUS_BADGE: Record<string, string> = {
   NEEDS_INFO: 'badge-danger',
 };
 
-const DOC_CHECKLIST = [
-  { label: 'Medical License', type: 'LICENSE' },
-  { label: 'Medical Degree', type: 'DEGREE' },
-  { label: 'Board Certification', type: 'BOARD_CERT' },
-  { label: 'Malpractice Insurance', type: 'INSURANCE' },
-  { label: 'Government ID', type: 'IDENTITY' },
+const PHASE_LABELS: Record<string, string> = {
+  APPOINTMENT: 'Appointment',
+  DOCUMENT_UPLOAD: 'Document Upload',
+  CREDENTIALING: 'Credentialing',
+  PRIVILEGE_REQUEST: 'Privilege Request',
+  COMMITTEE_REVIEW: 'Committee Review',
+  COMPLETE: 'Complete',
+};
+
+const PRIVILEGE_LEVELS = [
+  { value: 'FULL', label: 'Full' },
+  { value: 'UNDER_SUPERVISION', label: 'Under Supervision' },
+  { value: 'NONE', label: 'None' },
 ];
+
+const WORKFLOW_STEPS = ['APPOINTMENT', 'DOCUMENT_UPLOAD', 'CREDENTIALING', 'PRIVILEGE_REQUEST', 'COMMITTEE_REVIEW', 'COMPLETE'];
 
 export default function ProviderDashboard() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [categories, setCategories] = useState<StaffCategory[]>([]);
+  const [requiredDocs, setRequiredDocs] = useState<RequiredDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [showNewApp, setShowNewApp] = useState(false);
+  const [newCategoryId, setNewCategoryId] = useState('');
+  const [newSubtypeId, setNewSubtypeId] = useState('');
+  const [privilegeLevels, setPrivilegeLevels] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pendingUpload, setPendingUpload] = useState<{ type: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const activeApp = applications.find((a) => !['APPROVED', 'DENIED'].includes(a.status));
+
   const loadData = useCallback(async () => {
     try {
-      const apps = await api<Application[]>('/api/applications');
+      const [apps, cats] = await Promise.all([
+        api<Application[]>('/api/applications'),
+        api<StaffCategory[]>('/api/catalog/categories'),
+      ]);
       setApplications(apps);
+      setCategories(cats);
     } catch (err) {
       console.error(err);
     }
@@ -70,20 +139,74 @@ export default function ProviderDashboard() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (activeApp?.workflowPhase === 'PRIVILEGE_REQUEST' && !selectedApp?.jobDescription) {
+      api<Application>(`/api/applications/${activeApp.id}`).then(setSelectedApp).catch(console.error);
+    }
+  }, [activeApp?.id, activeApp?.workflowPhase, selectedApp?.jobDescription]);
+
+  useEffect(() => {
+    const app = selectedApp || activeApp;
+    if (!app?.staffCategoryId) {
+      setRequiredDocs([]);
+      return;
+    }
+    api<RequiredDoc[]>(`/api/catalog/required-documents?categoryId=${app.staffCategoryId}`)
+      .then(setRequiredDocs)
+      .catch(console.error);
+  }, [selectedApp, activeApp]);
+
+  useEffect(() => {
+    if (selectedApp?.privilegeRequests) {
+      const levels: Record<string, string> = {};
+      for (const pr of selectedApp.privilegeRequests) {
+        levels[pr.jobDescriptionItemId] = pr.requestedLevel;
+      }
+      setPrivilegeLevels(levels);
+    } else if (selectedApp?.jobDescription?.items) {
+      const levels: Record<string, string> = {};
+      for (const item of selectedApp.jobDescription.items) {
+        levels[item.id] = item.defaultLevel;
+      }
+      setPrivilegeLevels(levels);
+    }
+  }, [selectedApp]);
+
   function showMessage(type: 'success' | 'error', text: string) {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 4000);
   }
 
-  async function handleNewApplication() {
+  async function openApplication(app: Application) {
+    try {
+      const full = await api<Application>(`/api/applications/${app.id}`);
+      setSelectedApp(full);
+    } catch {
+      setSelectedApp(app);
+    }
+  }
+
+  async function handleCreateApplication() {
+    if (!newCategoryId || !newSubtypeId) {
+      showMessage('error', 'Select your category and role');
+      return;
+    }
     setActionLoading(true);
     try {
       const app = await api<Application>('/api/applications', {
         method: 'POST',
-        body: { type: 'INITIAL_APPOINTMENT' },
+        body: {
+          type: 'INITIAL_APPOINTMENT',
+          staffCategoryId: newCategoryId,
+          staffSubtypeId: newSubtypeId,
+        },
       });
       setApplications((prev) => [app, ...prev]);
-      showMessage('success', 'New application created');
+      setShowNewApp(false);
+      setNewCategoryId('');
+      setNewSubtypeId('');
+      showMessage('success', 'Appointment application created — select role saved');
+      openApplication(app);
     } catch (err) {
       showMessage('error', err instanceof Error ? err.message : 'Failed to create application');
     } finally {
@@ -96,10 +219,46 @@ export default function ProviderDashboard() {
     try {
       const updated = await api<Application>(`/api/applications/${id}/submit`, { method: 'POST' });
       setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)));
-      setSelectedApp(updated);
-      showMessage('success', 'Application submitted for review');
+      setSelectedApp((prev) => (prev?.id === id ? { ...prev, ...updated } : prev));
+      showMessage('success', 'Submitted — upload your education documents');
     } catch (err) {
-      showMessage('error', err instanceof Error ? err.message : 'Failed to submit application');
+      showMessage('error', err instanceof Error ? err.message : 'Failed to submit');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleSavePrivileges(id: string) {
+    const requests = Object.entries(privilegeLevels).map(([jobDescriptionItemId, requestedLevel]) => ({
+      jobDescriptionItemId,
+      requestedLevel,
+    }));
+    setActionLoading(true);
+    try {
+      const updated = await api<Application>(`/api/applications/${id}/privilege-requests`, {
+        method: 'PUT',
+        body: { requests },
+      });
+      setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      setSelectedApp(updated);
+      showMessage('success', 'Privilege requests saved');
+    } catch (err) {
+      showMessage('error', err instanceof Error ? err.message : 'Failed to save privileges');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleSubmitPrivileges(id: string) {
+    setActionLoading(true);
+    try {
+      await handleSavePrivileges(id);
+      const updated = await api<Application>(`/api/applications/${id}/submit-privileges`, { method: 'POST' });
+      setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      setSelectedApp(updated);
+      showMessage('success', 'Privileges submitted to committee');
+    } catch (err) {
+      showMessage('error', err instanceof Error ? err.message : 'Failed to submit privileges');
     } finally {
       setActionLoading(false);
     }
@@ -122,7 +281,7 @@ export default function ProviderDashboard() {
         name: pendingUpload.name,
       });
       setDocuments((prev) => [doc, ...prev.filter((d) => d.type !== pendingUpload.type)]);
-      showMessage('success', `${pendingUpload.name} uploaded successfully`);
+      showMessage('success', `${pendingUpload.name} uploaded`);
     } catch (err) {
       showMessage('error', err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -132,105 +291,75 @@ export default function ProviderDashboard() {
   }
 
   const uploadedTypes = new Set(documents.map((d) => d.type));
+  const docApp = selectedApp || activeApp;
+  const showDocUpload = docApp && ['DOCUMENT_UPLOAD', 'CREDENTIALING'].includes(docApp.workflowPhase || '');
+  const privilegeApp = selectedApp?.workflowPhase === 'PRIVILEGE_REQUEST' ? selectedApp : activeApp?.workflowPhase === 'PRIVILEGE_REQUEST' ? selectedApp : null;
+  const showPrivilegeRequest = privilegeApp?.workflowPhase === 'PRIVILEGE_REQUEST' && !!privilegeApp?.jobDescription;
+  const selectedSubtypes = categories.find((c) => c.id === newCategoryId)?.subtypes ?? [];
 
   return (
     <div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-        style={{ display: 'none' }}
-        onChange={handleFileSelected}
-      />
+      <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style={{ display: 'none' }} onChange={handleFileSelected} />
 
       {message && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '1rem',
-            right: '1rem',
-            zIndex: 1000,
-            padding: '0.75rem 1.25rem',
-            borderRadius: '8px',
-            background: message.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)',
-            color: 'white',
-            fontSize: '0.875rem',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          }}
-        >
+        <div style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 1000, padding: '0.75rem 1.25rem', borderRadius: '8px', background: message.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)', color: 'white', fontSize: '0.875rem' }}>
           {message.text}
         </div>
       )}
 
       <div className="section-header">
         <h2>Provider Dashboard</h2>
-        {process.env.NEXT_PUBLIC_BUILD_SHA && (
-          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginRight: 'auto', marginLeft: '1rem' }}>
-            build {process.env.NEXT_PUBLIC_BUILD_SHA.slice(0, 7)}
-          </span>
-        )}
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleNewApplication}
-          disabled={actionLoading}
-        >
+        <button type="button" className="btn btn-primary" onClick={() => setShowNewApp(true)} disabled={actionLoading || !!activeApp}>
           <FileText size={16} />
-          New Application
+          New Appointment
         </button>
       </div>
 
+      {activeApp?.workflowPhase && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h4 style={{ marginBottom: '0.75rem' }}>Credentialing Journey</h4>
+          <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+            {WORKFLOW_STEPS.map((step, i) => {
+              const current = WORKFLOW_STEPS.indexOf(activeApp.workflowPhase || 'APPOINTMENT');
+              const done = i < current;
+              const active = i === current;
+              return (
+                <div key={step} style={{ flex: '1 1 120px', textAlign: 'center', padding: '0.5rem', borderRadius: 6, fontSize: '0.7rem', background: active ? 'var(--color-primary)' : done ? 'var(--color-success)' : 'var(--color-bg)', color: active || done ? 'white' : 'var(--color-text-muted)' }}>
+                  {PHASE_LABELS[step]}
+                </div>
+              );
+            })}
+          </div>
+          {activeApp.staffSubtype && (
+            <p style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+              Role: <strong>{activeApp.staffCategory?.name}</strong> — {activeApp.staffSubtype.name}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="card-grid">
-        <div className="stat-card">
-          <div className="label">Active Applications</div>
-          <div className="value">{applications.filter((a) => !['APPROVED', 'DENIED'].includes(a.status)).length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label"><Clock size={14} style={{ display: 'inline' }} /> Pending Review</div>
-          <div className="value">{applications.filter((a) => ['SUBMITTED', 'UNDER_VERIFICATION'].includes(a.status)).length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label"><AlertTriangle size={14} style={{ display: 'inline' }} /> Expiring Soon</div>
-          <div className="value" style={{ color: 'var(--color-warning)' }}>—</div>
-        </div>
-        <div className="stat-card">
-          <div className="label"><Upload size={14} style={{ display: 'inline' }} /> Documents</div>
-          <div className="value">{documents.length}</div>
-        </div>
+        <div className="stat-card"><div className="label">Active Applications</div><div className="value">{applications.filter((a) => !['APPROVED', 'DENIED'].includes(a.status)).length}</div></div>
+        <div className="stat-card"><div className="label"><Clock size={14} style={{ display: 'inline' }} /> Phase</div><div className="value" style={{ fontSize: '1rem' }}>{activeApp?.workflowPhase ? PHASE_LABELS[activeApp.workflowPhase] : '—'}</div></div>
+        <div className="stat-card"><div className="label"><Upload size={14} style={{ display: 'inline' }} /> Documents</div><div className="value">{documents.length}</div></div>
+        <div className="stat-card"><div className="label"><Shield size={14} style={{ display: 'inline' }} /> Privileges</div><div className="value">{activeApp?.privilegeRequests?.length ?? 0}</div></div>
       </div>
 
       <div className="card">
         <h3 style={{ marginBottom: '1rem' }}>My Applications</h3>
-        {loading ? (
-          <p>Loading...</p>
-        ) : applications.length === 0 ? (
-          <p style={{ color: 'var(--color-text-muted)' }}>No applications yet. Start a new application to begin credentialing.</p>
+        {loading ? <p>Loading...</p> : applications.length === 0 ? (
+          <p style={{ color: 'var(--color-text-muted)' }}>No applications yet. Start a new appointment to begin credentialing.</p>
         ) : (
           <table className="table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Role</th><th>Phase</th><th>Status</th><th>Submitted</th><th>Actions</th></tr></thead>
             <tbody>
               {applications.map((app) => (
                 <tr key={app.id}>
-                  <td>{app.type.replace(/_/g, ' ')}</td>
+                  <td>{app.staffSubtype?.name ?? '—'}</td>
+                  <td>{app.workflowPhase ? PHASE_LABELS[app.workflowPhase] : '—'}</td>
                   <td><span className={`badge ${STATUS_BADGE[app.status] || 'badge-neutral'}`}>{app.status}</span></td>
                   <td>{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '—'}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ padding: '0.375rem 0.75rem' }}
-                      onClick={() => setSelectedApp(app)}
-                    >
-                      View
-                    </button>
-                  </td>
+                  <td><button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem' }} onClick={() => openApplication(app)}>View</button></td>
                 </tr>
               ))}
             </tbody>
@@ -238,91 +367,97 @@ export default function ProviderDashboard() {
         )}
       </div>
 
-      <div className="card" style={{ marginTop: '1.5rem' }}>
-        <h3 style={{ marginBottom: '1rem' }}>Document Checklist</h3>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-          Upload required documents based on your specialty. Documents are verified by credentialing staff via primary source verification.
-        </p>
-        <div style={{ marginTop: '1rem' }}>
-          {DOC_CHECKLIST.map((doc) => {
-            const uploaded = uploadedTypes.has(doc.type);
-            return (
-              <div
-                key={doc.type}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)' }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {uploaded && <Check size={16} style={{ color: 'var(--color-success)' }} />}
-                  {doc.label}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}
-                  onClick={() => triggerUpload(doc.type, doc.label)}
-                  disabled={actionLoading}
-                >
-                  <Upload size={14} /> {uploaded ? 'Replace' : 'Upload'}
-                </button>
-              </div>
-            );
-          })}
+      {(showDocUpload || requiredDocs.length > 0) && (
+        <div className="card" style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Education & Credential Documents</h3>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+            Upload 10th, 12th, degree certificates, medical/nursing license, and government ID as required for your role.
+          </p>
+          <div style={{ marginTop: '1rem' }}>
+            {(requiredDocs.length > 0 ? requiredDocs : []).map((doc) => {
+              const uploaded = uploadedTypes.has(doc.type);
+              return (
+                <div key={doc.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {uploaded && <Check size={16} style={{ color: 'var(--color-success)' }} />}
+                    {doc.name}
+                  </span>
+                  <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => triggerUpload(doc.type, doc.name)} disabled={actionLoading || !showDocUpload}>
+                    <Upload size={14} /> {uploaded ? 'Replace' : 'Upload'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {showPrivilegeRequest && privilegeApp?.jobDescription && (
+        <div className="card" style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ marginBottom: '0.5rem' }}>Request Privileges — {privilegeApp.jobDescription.title}</h3>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+            Select requested privilege level for each item in your job description (Full / Under Supervision / None).
+          </p>
+          {privilegeApp.jobDescription.items.map((item) => (
+            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: '1rem', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)' }}>
+              <div>
+                <strong style={{ fontSize: '0.875rem' }}>{item.name}</strong>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Suggested: {PRIVILEGE_LEVELS.find((l) => l.value === item.defaultLevel)?.label}</div>
+              </div>
+              <select className="form-input" value={privilegeLevels[item.id] || item.defaultLevel} onChange={(e) => setPrivilegeLevels((prev) => ({ ...prev, [item.id]: e.target.value }))}>
+                {PRIVILEGE_LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => handleSavePrivileges(privilegeApp.id)} disabled={actionLoading}>Save Draft</button>
+            <button type="button" className="btn btn-primary" onClick={() => handleSubmitPrivileges(privilegeApp.id)} disabled={actionLoading}>Submit to Committee</button>
+          </div>
+        </div>
+      )}
+
+      {showNewApp && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }} onClick={() => setShowNewApp(false)}>
+          <div className="card" style={{ width: '100%', maxWidth: '480px', margin: '1rem' }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginBottom: '1rem' }}>New Appointment Application</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>Select your staff category and specific role. This determines required documents and job-description privileges.</p>
+            <div className="form-group">
+              <label>Category</label>
+              <select className="form-input" value={newCategoryId} onChange={(e) => { setNewCategoryId(e.target.value); setNewSubtypeId(''); }}>
+                <option value="">Select category...</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Role</label>
+              <select className="form-input" value={newSubtypeId} onChange={(e) => setNewSubtypeId(e.target.value)} disabled={!newCategoryId}>
+                <option value="">Select role...</option>
+                {selectedSubtypes.map((s) => <option key={s.id} value={s.id}>{s.parentGroup ? `${s.parentGroup} — ` : ''}{s.name}</option>)}
+              </select>
+            </div>
+            <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={handleCreateApplication} disabled={actionLoading}>Create Application</button>
+          </div>
+        </div>
+      )}
 
       {selectedApp && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 999,
-          }}
-          onClick={() => setSelectedApp(null)}
-        >
-          <div
-            className="card"
-            style={{ width: '100%', maxWidth: '480px', margin: '1rem' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }} onClick={() => setSelectedApp(null)}>
+          <div className="card" style={{ width: '100%', maxWidth: '520px', margin: '1rem', maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <h3>Application Details</h3>
-              <button
-                type="button"
-                onClick={() => setSelectedApp(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }}
-              >
-                <X size={20} />
-              </button>
+              <button type="button" onClick={() => setSelectedApp(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              <dt style={{ color: 'var(--color-text-muted)' }}>Type</dt>
-              <dd>{selectedApp.type.replace(/_/g, ' ')}</dd>
+              <dt style={{ color: 'var(--color-text-muted)' }}>Role</dt>
+              <dd>{selectedApp.staffSubtype?.name ?? 'Not selected'}</dd>
+              <dt style={{ color: 'var(--color-text-muted)' }}>Phase</dt>
+              <dd>{selectedApp.workflowPhase ? PHASE_LABELS[selectedApp.workflowPhase] : '—'}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Status</dt>
               <dd><span className={`badge ${STATUS_BADGE[selectedApp.status] || 'badge-neutral'}`}>{selectedApp.status}</span></dd>
-              <dt style={{ color: 'var(--color-text-muted)' }}>Created</dt>
-              <dd>{new Date(selectedApp.createdAt).toLocaleDateString()}</dd>
-              <dt style={{ color: 'var(--color-text-muted)' }}>Submitted</dt>
-              <dd>{selectedApp.submittedAt ? new Date(selectedApp.submittedAt).toLocaleDateString() : 'Not yet submitted'}</dd>
-              {selectedApp.currentStage && (
-                <>
-                  <dt style={{ color: 'var(--color-text-muted)' }}>Stage</dt>
-                  <dd>{selectedApp.currentStage.replace(/_/g, ' ')}</dd>
-                </>
-              )}
             </dl>
             {(selectedApp.status === 'DRAFT' || selectedApp.status === 'NEEDS_INFO') && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ marginTop: '1.5rem', width: '100%' }}
-                onClick={() => handleSubmitApplication(selectedApp.id)}
-                disabled={actionLoading}
-              >
-                Submit Application
+              <button type="button" className="btn btn-primary" style={{ marginTop: '1.5rem', width: '100%' }} onClick={() => handleSubmitApplication(selectedApp.id)} disabled={actionLoading}>
+                Submit & Begin Document Upload
               </button>
             )}
           </div>

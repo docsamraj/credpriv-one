@@ -91,15 +91,19 @@ model ProviderProfile {
   zipCode         String?
   departmentId    String?
   specialtyId     String?
+  staffCategoryId String?
+  staffSubtypeId  String?
   employmentType  String?   // FULL_TIME, PART_TIME, LOCUM, etc.
   startDate       DateTime?
   bio             String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  provider   Provider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  department Department? @relation(fields: [departmentId], references: [id])
-  specialty  Specialty?  @relation(fields: [specialtyId], references: [id])
+  provider      Provider       @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  specialty     Specialty?     @relation(fields: [specialtyId], references: [id])
+  staffCategory StaffCategory? @relation(fields: [staffCategoryId], references: [id])
+  staffSubtype  StaffSubtype?  @relation(fields: [staffSubtypeId], references: [id])
 
   @@map("provider_profiles")
 }
@@ -107,24 +111,35 @@ model ProviderProfile {
 // ─── Applications & Lifecycle ────────────────────────────────────────────────
 
 model Application {
-  id              String   @id @default(cuid())
-  providerId      String
-  type            String   // INITIAL_APPOINTMENT, REAPPOINTMENT, etc.
-  status          String   @default("DRAFT")
-  currentStage    String?
-  submittedAt     DateTime?
-  committeeReady  Boolean  @default(false)
-  committeeReadyAt DateTime?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  providerId           String
+  type                 String    // INITIAL_APPOINTMENT, REAPPOINTMENT, etc.
+  status               String    @default("DRAFT")
+  workflowPhase        String    @default("APPOINTMENT") // APPOINTMENT → DOCUMENT_UPLOAD → CREDENTIALING → PRIVILEGE_REQUEST → COMMITTEE_REVIEW → COMPLETE
+  currentStage         String?
+  staffCategoryId      String?
+  staffSubtypeId       String?
+  jobDescriptionId     String?
+  submittedAt          DateTime?
+  credentialingCompleteAt DateTime?
+  privilegeRequestedAt DateTime?
+  committeeReady       Boolean   @default(false)
+  committeeReadyAt     DateTime?
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  provider         Provider          @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  committeeReviews CommitteeReview[]
-  tasks            Task[]
+  provider           Provider                    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  staffCategory      StaffCategory?              @relation(fields: [staffCategoryId], references: [id])
+  staffSubtype       StaffSubtype?               @relation(fields: [staffSubtypeId], references: [id])
+  jobDescription     JobDescription?             @relation(fields: [jobDescriptionId], references: [id])
+  committeeReviews   CommitteeReview[]
+  tasks              Task[]
+  privilegeRequests  ApplicationPrivilegeRequest[]
 
   @@index([status])
   @@index([providerId])
+  @@index([workflowPhase])
   @@map("applications")
 }
 
@@ -450,18 +465,22 @@ model Notification {
 // ─── Admin Configuration ───────────────────────────────────────────────────────
 
 model RequiredDocument {
-  id          String   @id @default(cuid())
-  name        String
-  type        String   // Document type enum
-  role        String?  // Target role
-  specialtyId String?
-  isRequired  Boolean  @default(true)
-  description String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  name            String
+  type            String   // Document type enum
+  role            String?  // Target role
+  specialtyId     String?
+  staffCategoryId String?
+  staffSubtypeId  String?
+  isRequired      Boolean  @default(true)
+  description     String?
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  specialty Specialty? @relation(fields: [specialtyId], references: [id])
+  specialty     Specialty?     @relation(fields: [specialtyId], references: [id])
+  staffCategory StaffCategory? @relation(fields: [staffCategoryId], references: [id])
+  staffSubtype  StaffSubtype?  @relation(fields: [staffSubtypeId], references: [id])
 
   @@map("required_documents")
 }
@@ -518,3 +537,103 @@ model AuditLog {
 
 // TODO: Multi-tenant support — add Hospital/Tenant model with tenantId on all entities
 // TODO: Integration webhooks — add WebhookSubscription model for HIS/EMR/HRIS
+
+// ─── Staff Taxonomy & Job Descriptions ─────────────────────────────────────────
+
+model StaffCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique // DOCTOR, NURSE, TECHNICIAN
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subtypes          StaffSubtype[]
+  jobDescriptions   JobDescription[]
+  requiredDocuments RequiredDocument[]
+  providerProfiles  ProviderProfile[]
+  applications      Application[]
+
+  @@map("staff_categories")
+}
+
+model StaffSubtype {
+  id          String   @id @default(cuid())
+  categoryId  String
+  code        String   @unique // FULL_TIME_CONSULTANT, CSSD, etc.
+  name        String
+  parentGroup String?  // e.g. Consultant for FT/Visiting
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category          StaffCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  jobDescriptions   JobDescription[]
+  requiredDocuments RequiredDocument[]
+  providerProfiles  ProviderProfile[]
+  applications      Application[]
+
+  @@map("staff_subtypes")
+}
+
+model JobDescription {
+  id          String   @id @default(cuid())
+  categoryId  String
+  subtypeId   String
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category     StaffCategory             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subtype      StaffSubtype              @relation(fields: [subtypeId], references: [id], onDelete: Cascade)
+  items        JobDescriptionItem[]
+  applications Application[]
+
+  @@unique([subtypeId])
+  @@map("job_descriptions")
+}
+
+model JobDescriptionItem {
+  id               String   @id @default(cuid())
+  jobDescriptionId String
+  name             String
+  code             String?
+  description      String?
+  defaultLevel     String   @default("NONE") // FULL, UNDER_SUPERVISION, NONE
+  sortOrder        Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  jobDescription    JobDescription              @relation(fields: [jobDescriptionId], references: [id], onDelete: Cascade)
+  privilegeRequests ApplicationPrivilegeRequest[]
+
+  @@map("job_description_items")
+}
+
+model ApplicationPrivilegeRequest {
+  id                   String    @id @default(cuid())
+  applicationId        String
+  jobDescriptionItemId String
+  requestedLevel       String    // FULL, UNDER_SUPERVISION, NONE
+  grantedLevel         String?
+  status               String    @default("REQUESTED") // REQUESTED, GRANTED, DENIED
+  grantedAt            DateTime?
+  grantedById          String?
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  application        Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  jobDescriptionItem JobDescriptionItem @relation(fields: [jobDescriptionItemId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, jobDescriptionItemId])
+  @@index([applicationId])
+  @@map("application_privilege_requests")
+}

@@ -1,10 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedStaffCatalog } from './seed-catalog';
+import { DoctorSubtype } from '@credpriv/shared';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding CredPriv One database...');
+
+  const { categoryIds, subtypeIds } = await seedStaffCatalog(prisma);
 
   // Departments
   const cardiology = await prisma.department.upsert({
@@ -180,6 +184,8 @@ async function main() {
             create: {
               departmentId: cardiology.id,
               specialtyId: interventional.id,
+              staffCategoryId: categoryIds.DOCTOR,
+              staffSubtypeId: subtypeIds[DoctorSubtype.FULL_TIME_CONSULTANT],
               phone: '+91-9876543210',
               employmentType: 'FULL_TIME',
             },
@@ -220,8 +226,11 @@ async function main() {
       data: {
         providerId: providerUser.provider.id,
         type: 'INITIAL_APPOINTMENT',
-        status: 'UNDER_VERIFICATION',
-        currentStage: 'UNDER_VERIFICATION',
+        status: 'SUBMITTED',
+        workflowPhase: 'DOCUMENT_UPLOAD',
+        currentStage: 'DOCUMENT_UPLOAD',
+        staffCategoryId: categoryIds.DOCTOR,
+        staffSubtypeId: subtypeIds[DoctorSubtype.FULL_TIME_CONSULTANT],
         submittedAt: new Date(),
       },
     });

@@ -9,19 +9,27 @@ interface Queues {
   pendingDocuments: number;
   pendingPsv: number;
   committeeReady: number;
+  privilegePending?: number;
 }
 
 interface Application {
   id: string;
   type: string;
   status: string;
+  workflowPhase?: string;
   committeeReady: boolean;
   submittedAt?: string;
   createdAt: string;
   provider: {
     user: { firstName: string; lastName: string };
-    profile?: { department?: { name: string }; specialty?: { name: string } };
+    profile?: {
+      department?: { name: string };
+      specialty?: { name: string };
+      staffCategory?: { name: string };
+      staffSubtype?: { name: string };
+    };
   };
+  staffSubtype?: { name: string };
 }
 
 export default function StaffDashboard() {
@@ -54,6 +62,22 @@ export default function StaffDashboard() {
   function showMessage(type: 'success' | 'error', text: string) {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 4000);
+  }
+
+  async function handleCompleteCredentialing(id: string) {
+    setActionLoading(true);
+    try {
+      const updated = await api<Application>(`/api/applications/${id}/complete-credentialing`, { method: 'POST' });
+      setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      if (selectedApp?.id === id) setSelectedApp(updated);
+      const q = await api<Queues>('/api/applications/queues');
+      setQueues(q);
+      showMessage('success', 'Credentialing complete — provider can request privileges');
+    } catch (err) {
+      showMessage('error', err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function handleMarkReady(id: string) {
@@ -118,6 +142,10 @@ export default function StaffDashboard() {
           <div className="count">{queues?.committeeReady ?? '—'}</div>
           <div className="title">Committee Ready</div>
         </div>
+        <div className="queue-card">
+          <div className="count">{queues?.privilegePending ?? '—'}</div>
+          <div className="title">Awaiting Privilege Request</div>
+        </div>
       </div>
 
       <div className="card">
@@ -129,8 +157,8 @@ export default function StaffDashboard() {
             <thead>
               <tr>
                 <th>Provider</th>
-                <th>Department</th>
-                <th>Type</th>
+                <th>Role</th>
+                <th>Phase</th>
                 <th>Status</th>
                 <th>Submitted</th>
                 <th>Actions</th>
@@ -139,9 +167,9 @@ export default function StaffDashboard() {
             <tbody>
               {applications.map((app) => (
                 <tr key={app.id}>
-                  <td>Dr. {app.provider.user.firstName} {app.provider.user.lastName}</td>
-                  <td>{app.provider.profile?.department?.name ?? '—'}</td>
-                  <td>{app.type.replace(/_/g, ' ')}</td>
+                  <td>{app.provider.user.firstName} {app.provider.user.lastName}</td>
+                  <td>{app.staffSubtype?.name ?? app.provider.profile?.staffSubtype?.name ?? '—'}</td>
+                  <td>{app.workflowPhase?.replace(/_/g, ' ') ?? '—'}</td>
                   <td>
                     <span className={`badge ${app.committeeReady ? 'badge-success' : 'badge-warning'}`}>
                       {app.status}
@@ -157,7 +185,18 @@ export default function StaffDashboard() {
                     >
                       Review
                     </button>
-                    {!app.committeeReady && app.status === 'UNDER_VERIFICATION' && (
+                    {['DOCUMENT_UPLOAD', 'CREDENTIALING'].includes(app.workflowPhase || '') && app.status !== 'APPROVED' && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '0.375rem 0.75rem' }}
+                        onClick={() => handleCompleteCredentialing(app.id)}
+                        disabled={actionLoading}
+                      >
+                        Complete Credentialing
+                      </button>
+                    )}
+                    {!app.committeeReady && app.status === 'UNDER_VERIFICATION' && !app.workflowPhase && (
                       <button
                         type="button"
                         className="btn btn-primary"
@@ -207,16 +246,27 @@ export default function StaffDashboard() {
             <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '0.5rem 1rem', fontSize: '0.875rem' }}>
               <dt style={{ color: 'var(--color-text-muted)' }}>Provider</dt>
               <dd>Dr. {selectedApp.provider.user.firstName} {selectedApp.provider.user.lastName}</dd>
-              <dt style={{ color: 'var(--color-text-muted)' }}>Department</dt>
-              <dd>{selectedApp.provider.profile?.department?.name ?? '—'}</dd>
-              <dt style={{ color: 'var(--color-text-muted)' }}>Type</dt>
-              <dd>{selectedApp.type.replace(/_/g, ' ')}</dd>
+              <dt style={{ color: 'var(--color-text-muted)' }}>Role</dt>
+              <dd>{selectedApp.staffSubtype?.name ?? selectedApp.provider.profile?.staffSubtype?.name ?? '—'}</dd>
+              <dt style={{ color: 'var(--color-text-muted)' }}>Phase</dt>
+              <dd>{selectedApp.workflowPhase?.replace(/_/g, ' ') ?? '—'}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Status</dt>
               <dd>{selectedApp.status}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Committee Ready</dt>
               <dd>{selectedApp.committeeReady ? 'Yes' : 'No'}</dd>
             </dl>
-            {!selectedApp.committeeReady && selectedApp.status === 'UNDER_VERIFICATION' && (
+            {['DOCUMENT_UPLOAD', 'CREDENTIALING'].includes(selectedApp.workflowPhase || '') && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: '1.5rem', width: '100%' }}
+                onClick={() => handleCompleteCredentialing(selectedApp.id)}
+                disabled={actionLoading}
+              >
+                Complete Credentialing → Privilege Request
+              </button>
+            )}
+            {!selectedApp.committeeReady && selectedApp.status === 'UNDER_VERIFICATION' && !selectedApp.workflowPhase && (
               <button
                 type="button"
                 className="btn btn-primary"

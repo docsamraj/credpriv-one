@@ -3,6 +3,27 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 
+interface PrivilegeRequest {
+  id: string;
+  jobDescriptionItemId: string;
+  requestedLevel: string;
+  grantedLevel?: string;
+  jobDescriptionItem: { name: string };
+}
+
+interface CommitteeApplication {
+  id: string;
+  workflowPhase: string;
+  status: string;
+  provider: {
+    user: { firstName: string; lastName: string };
+    profile?: { staffSubtype?: { name: string } };
+  };
+  staffSubtype?: { name: string };
+  jobDescription?: { title: string };
+  privilegeRequests: PrivilegeRequest[];
+}
+
 interface Meeting {
   id: string;
   title: string;
@@ -23,11 +44,16 @@ interface Meeting {
 
 export default function CommitteeDashboard() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [committeeApps, setCommitteeApps] = useState<CommitteeApplication[]>([]);
   const [selectedReview, setSelectedReview] = useState<string | null>(null);
+  const [grantApp, setGrantApp] = useState<CommitteeApplication | null>(null);
 
   useEffect(() => {
     api<Meeting[]>('/api/committees/meetings')
       .then(setMeetings)
+      .catch(console.error);
+    api<CommitteeApplication[]>('/api/applications?committeeReady=true')
+      .then((apps) => setCommitteeApps(apps.filter((a) => a.workflowPhase === 'COMMITTEE_REVIEW')))
       .catch(console.error);
   }, []);
 
@@ -45,10 +71,48 @@ export default function CommitteeDashboard() {
         <div className="stat-card">
           <div className="label">Cases Pending Review</div>
           <div className="value">
-            {meetings.reduce((sum, m) => sum + m.reviews.filter((r) => r.status === 'PENDING').length, 0)}
+            {committeeApps.length || meetings.reduce((sum, m) => sum + m.reviews.filter((r) => r.status === 'PENDING').length, 0)}
           </div>
         </div>
       </div>
+
+      {committeeApps.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Privilege Grant Queue</h3>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+            Review requested privileges and grant Full / Under Supervision / None per job description item.
+          </p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Role</th>
+                <th>Job Description</th>
+                <th>Items</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {committeeApps.map((app) => (
+                <tr key={app.id}>
+                  <td>{app.provider.user.firstName} {app.provider.user.lastName}</td>
+                  <td>{app.staffSubtype?.name ?? app.provider.profile?.staffSubtype?.name ?? '—'}</td>
+                  <td>{app.jobDescription?.title ?? '—'}</td>
+                  <td>{app.privilegeRequests?.length ?? 0}</td>
+                  <td>
+                    <button type="button" className="btn btn-primary" style={{ padding: '0.375rem 0.75rem' }} onClick={async () => {
+                      const full = await api<CommitteeApplication>(`/api/applications/${app.id}`);
+                      setGrantApp(full);
+                    }}>
+                      Grant Privileges
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {meetings.length === 0 ? (
         <div className="card">
@@ -108,6 +172,87 @@ export default function CommitteeDashboard() {
       {selectedReview && (
         <ReviewPacketModal reviewId={selectedReview} onClose={() => setSelectedReview(null)} />
       )}
+
+      {grantApp && (
+        <PrivilegeGrantModal app={grantApp} onClose={() => setGrantApp(null)} onGranted={() => {
+          setGrantApp(null);
+          api<CommitteeApplication[]>('/api/applications?committeeReady=true')
+            .then((apps) => setCommitteeApps(apps.filter((a) => a.workflowPhase === 'COMMITTEE_REVIEW')))
+            .catch(console.error);
+        }} />
+      )}
+    </div>
+  );
+}
+
+const PRIVILEGE_LEVELS = [
+  { value: 'FULL', label: 'Full' },
+  { value: 'UNDER_SUPERVISION', label: 'Under Supervision' },
+  { value: 'NONE', label: 'None' },
+];
+
+function PrivilegeGrantModal({
+  app,
+  onClose,
+  onGranted,
+}: {
+  app: CommitteeApplication;
+  onClose: () => void;
+  onGranted: () => void;
+}) {
+  const [grants, setGrants] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const pr of app.privilegeRequests || []) {
+      initial[pr.jobDescriptionItemId] = pr.grantedLevel || pr.requestedLevel;
+    }
+    return initial;
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submitGrants() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api(`/api/applications/${app.id}/grant-privileges`, {
+        method: 'POST',
+        body: {
+          grants: Object.entries(grants).map(([jobDescriptionItemId, grantedLevel]) => ({
+            jobDescriptionItemId,
+            grantedLevel,
+          })),
+        },
+      });
+      onGranted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to grant privileges');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={onClose}>
+      <div className="card" style={{ width: '90%', maxWidth: 700, maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ marginBottom: '0.5rem' }}>Grant Privileges</h3>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+          {app.provider.user.firstName} {app.provider.user.lastName} — {app.jobDescription?.title}
+        </p>
+        {error && <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem' }}>{error}</p>}
+        {(app.privilegeRequests || []).map((pr) => (
+          <div key={pr.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 160px', gap: '0.75rem', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+            <span>{pr.jobDescriptionItem.name}</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>Requested: {pr.requestedLevel.replace(/_/g, ' ')}</span>
+            <select className="form-input" value={grants[pr.jobDescriptionItemId]} onChange={(e) => setGrants((prev) => ({ ...prev, [pr.jobDescriptionItemId]: e.target.value }))}>
+              {PRIVILEGE_LEVELS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={submitGrants} disabled={saving}>Confirm Grant</button>
+        </div>
+      </div>
     </div>
   );
 }

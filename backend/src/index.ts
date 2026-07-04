@@ -13,6 +13,7 @@ import committeeRoutes from './routes/committee.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import adminRoutes from './routes/admin.routes';
 import documentRoutes from './routes/document.routes';
+import catalogRoutes from './routes/catalog.routes';
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.use('/api/committees', committeeRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/catalog', catalogRoutes);
 
 // 404 handler
 app.use((_req, res) => {

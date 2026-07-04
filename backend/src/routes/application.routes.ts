@@ -29,6 +29,7 @@ router.get(
       status: req.query.status as string,
       providerId,
       committeeReady: req.query.committeeReady === 'true' ? true : undefined,
+      workflowPhase: req.query.workflowPhase as string | undefined,
     });
     success(res, apps);
   })
@@ -59,8 +60,21 @@ router.post(
 
     if (!providerId) throw new AppError(400, 'providerId is required');
 
-    const app = await applicationService.create(providerId, req.body.type || 'INITIAL_APPOINTMENT');
+    const app = await applicationService.create(providerId, req.body.type || 'INITIAL_APPOINTMENT', {
+      staffCategoryId: req.body.staffCategoryId,
+      staffSubtypeId: req.body.staffSubtypeId,
+      jobDescriptionId: req.body.jobDescriptionId,
+    });
     success(res, app, 'Application created', 201);
+  })
+);
+
+router.get(
+  '/:id',
+  requirePermission('application.read'),
+  asyncHandler(async (req, res) => {
+    const app = await applicationService.getById(paramId(req.params.id));
+    success(res, app);
   })
 );
 
@@ -79,6 +93,50 @@ router.post(
   asyncHandler(async (req, res) => {
     const app = await applicationService.markCommitteeReady(paramId(req.params.id), req);
     success(res, app, 'Marked committee-ready');
+  })
+);
+
+router.post(
+  '/:id/complete-credentialing',
+  requirePermission('committee.mark_ready'),
+  asyncHandler(async (req, res) => {
+    const app = await applicationService.completeCredentialing(paramId(req.params.id), req);
+    success(res, app, 'Credentialing complete — provider can request privileges');
+  })
+);
+
+router.put(
+  '/:id/privilege-requests',
+  requirePermission('application.update'),
+  asyncHandler(async (req, res) => {
+    const app = await applicationService.savePrivilegeRequests(
+      paramId(req.params.id),
+      req.body.requests || []
+    );
+    success(res, app, 'Privilege requests saved');
+  })
+);
+
+router.post(
+  '/:id/submit-privileges',
+  requirePermission('application.update'),
+  asyncHandler(async (req, res) => {
+    const app = await applicationService.submitPrivileges(paramId(req.params.id), req);
+    success(res, app, 'Privileges submitted for committee review');
+  })
+);
+
+router.post(
+  '/:id/grant-privileges',
+  requirePermission('committee.decide'),
+  asyncHandler(async (req, res) => {
+    const app = await applicationService.grantPrivileges(
+      paramId(req.params.id),
+      req.body.grants || [],
+      req.user!.userId,
+      req
+    );
+    success(res, app, 'Privileges granted');
   })
 );
 

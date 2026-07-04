@@ -217,3 +217,5 @@ export interface OcrExtractionResult {
   extractedFields: Record<string, string>;
   confidence: number;
 }
+
+export * from './catalog';

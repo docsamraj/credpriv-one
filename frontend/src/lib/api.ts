@@ -10,10 +10,10 @@ export interface ApiOptions {
   token?: string | null;
 }
 
-async function parseResponse<T>(res: Response): Promise<{ ok: boolean; data: T; error?: string }> {
+async function parseResponse<T>(res: Response): Promise<T> {
   const text = await res.text();
   try {
-    return JSON.parse(text);
+    return JSON.parse(text) as T;
   } catch {
     throw new Error(
       text.startsWith('Internal') || text.startsWith('<')

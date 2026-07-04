@@ -1,24 +1,31 @@
-# Frontend production image — build from REPO ROOT (not frontend/)
+# Frontend production image — build from REPO ROOT
 FROM node:20-alpine AS builder
 WORKDIR /app
 
 ENV NODE_ENV=development
 
-COPY . .
+COPY package.json package-lock.json ./
+COPY shared ./shared
+COPY frontend ./frontend
 
 RUN npm ci --ignore-scripts
-RUN npm run build:frontend
 
-FROM node:20-alpine AS runner
 WORKDIR /app/frontend
 
-ENV NODE_ENV=production
+ARG RAILWAY_GIT_COMMIT_SHA=local
+ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
 
-COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/shared /app/shared
-COPY --from=builder /app/frontend /app/frontend
-COPY --from=builder /app/package.json /app/package.json
+RUN rm -rf .next && npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=builder /app/frontend/.next/standalone ./
+COPY --from=builder /app/frontend/.next/static ./.next/static
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

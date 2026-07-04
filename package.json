@@ -16,7 +16,9 @@
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:seed": "npm run db:seed --workspace=backend",
-    "db:studio": "npm run db:studio --workspace=backend"
+    "db:studio": "npm run db:studio --workspace=backend",
+    "smoke": "bash scripts/smoke-test.sh",
+    "smoke:prod": "bash scripts/smoke-test.sh https://credprivbackend-production.up.railway.app https://credpriv-production.up.railway.app"
   },
   "workspaces": [
     "backend",

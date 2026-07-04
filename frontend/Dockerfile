@@ -1,5 +1,6 @@
-# Frontend Docker build — Railway Root Directory = frontend/
-FROM node:20-alpine AS builder
+# Optional Docker build — use only when Root Directory = frontend/
+# Preferred deploy: Nixpacks (see railway.toml)
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 ENV NODE_ENV=development
@@ -10,14 +11,16 @@ RUN npm install
 COPY . .
 
 ARG RAILWAY_GIT_COMMIT_SHA=local
+ARG CACHEBUST=1
 ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
 
-RUN rm -rf .next && npm run build
+RUN echo "cachebust=$CACHEBUST sha=$RAILWAY_GIT_COMMIT_SHA" && rm -rf .next && npm run build
 
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules

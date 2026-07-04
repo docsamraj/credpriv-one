@@ -89,6 +89,7 @@ export default function CommitteeDashboard() {
                     </td>
                     <td>
                       <button
+                        type="button"
                         className="btn btn-primary"
                         style={{ padding: '0.375rem 0.75rem' }}
                         onClick={() => setSelectedReview(review.id)}
@@ -116,6 +117,7 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
   const [aiSummary, setAiSummary] = useState<{ summary: string; flags: Array<{ severity: string; message: string }> } | null>(null);
   const [decision, setDecision] = useState('');
   const [rationale, setRationale] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     api<Record<string, unknown>>(`/api/committees/reviews/${reviewId}`).then(setPacket).catch(console.error);
@@ -141,7 +143,7 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
       });
       onClose();
     } catch (err) {
-      console.error(err);
+      setMessage(err instanceof Error ? err.message : 'Failed to record decision');
     }
   }
 
@@ -149,12 +151,18 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex',
       alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }}>
-      <div className="card" style={{ width: '90%', maxWidth: 800, maxHeight: '90vh', overflow: 'auto' }}>
+    }}
+      onClick={onClose}
+    >
+      <div className="card" style={{ width: '90%', maxWidth: 800, maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <h3>Committee Review Packet</h3>
-          <button onClick={onClose} className="btn btn-secondary">Close</button>
+          <button type="button" onClick={onClose} className="btn btn-secondary">Close</button>
         </div>
+
+        {message && (
+          <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem', marginBottom: '1rem' }}>{message}</p>
+        )}
 
         {aiSummary && (
           <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--color-bg)', borderRadius: 8 }}>
@@ -195,7 +203,7 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
           />
         </div>
 
-        <button className="btn btn-primary" onClick={submitDecision} disabled={!decision}>
+        <button type="button" className="btn btn-primary" onClick={submitDecision} disabled={!decision}>
           Record Decision
         </button>
       </div>

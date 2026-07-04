@@ -1,0 +1,43 @@
+name: Verify Frontend Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --workspace=@credpriv/frontend --ignore-scripts
+
+      - name: Build frontend
+        run: npm run build --workspace=@credpriv/frontend
+        env:
+          NEXT_PUBLIC_BUILD_SHA: ${{ github.sha }}
+
+      - name: Verify provider dashboard JS is wired (not stub)
+        run: |
+          CHUNK=$(ls frontend/.next/static/chunks/app/dashboard/provider/page-*.js)
+          echo "Built chunk: $CHUNK"
+          SIZE=$(wc -c < "$CHUNK")
+          echo "Chunk size: $SIZE bytes"
+          if [ "$SIZE" -lt 9000 ]; then
+            echo "FAIL: Chunk too small ($SIZE bytes) — likely stub build without onClick handlers"
+            exit 1
+          fi
+          if ! grep -q 'BOARD_CERT\|documents/my\|Application Details' "$CHUNK"; then
+            echo "FAIL: Chunk missing wired dashboard handlers"
+            exit 1
+          fi
+          echo "PASS: Frontend bundle contains interactive provider dashboard code"

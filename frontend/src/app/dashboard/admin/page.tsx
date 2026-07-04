@@ -56,6 +56,7 @@ export default function AdminDashboard() {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {tabs.map((tab) => (
           <button
+            type="button"
             key={tab.id}
             className={`btn ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab(tab.id)}

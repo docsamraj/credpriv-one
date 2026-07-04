@@ -1,9 +1,9 @@
-# @credpriv/frontend — Root Directory MUST be "frontend"
+# Config for @credpriv/frontend when Root Directory = frontend
 [build]
-builder = "NIXPACKS"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm start"
 healthcheckPath = "/login"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"

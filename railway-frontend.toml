@@ -1,0 +1,12 @@
+# Config for @credpriv/frontend when Root Directory = / (repo root)
+# Set in Railway: Settings → Config-as-code → railway-frontend.toml
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci --ignore-scripts && npm run build --workspace=@credpriv/frontend"
+
+[deploy]
+startCommand = "npm run start --workspace=@credpriv/frontend"
+healthcheckPath = "/login"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"

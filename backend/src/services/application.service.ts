@@ -5,6 +5,7 @@ import { Request } from 'express';
 import { WorkflowPhase } from '@credpriv/shared';
 import { documentComplianceService } from './document-compliance.service';
 import { notificationService } from './notification.service';
+import { committeeService } from './committee.service';
 import { dispatchWebhookEvent } from './webhook-dispatch.service';
 import { IntegrationWebhookEvent } from '@credpriv/shared';
 
@@ -231,6 +232,22 @@ export class ApplicationService {
       updated.status,
       'Your privilege requests have been submitted and are queued for committee review.'
     );
+
+    const existingReview = await prisma.committeeReview.findFirst({
+      where: { applicationId: id, status: { in: ['PENDING', 'IN_REVIEW'] } },
+    });
+    if (!existingReview) {
+      const nextMeeting = await prisma.committeeMeeting.findFirst({
+        where: {
+          scheduledAt: { gte: new Date() },
+          status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+          committee: { type: 'CREDENTIALING', isActive: true },
+        },
+        orderBy: { scheduledAt: 'asc' },
+      });
+      await committeeService.createReview(id, nextMeeting?.id);
+    }
+
     return updated;
   }
 

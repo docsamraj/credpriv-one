@@ -19,7 +19,8 @@ import integrationRoutes from './routes/integration.routes';
 import notificationRoutes from './routes/notification.routes';
 import backgroundVerificationRoutes from './routes/background-verification.routes';
 import { seedStaffCatalog } from './lib/seed-staff-catalog';
-import { securityHeaders, rateLimit } from './middleware/security';
+import { securityHeaders } from './middleware/security';
+import { runCredentialExpiryReminders } from './jobs/credential-expiry.job';
 
 dotenv.config();
 
@@ -116,6 +117,13 @@ async function bootstrap() {
   app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`CredPriv One API running on 0.0.0.0:${PORT}`);
     console.log(`Health check: http://0.0.0.0:${PORT}/health`);
+
+    if (process.env.ENABLE_EXPIRY_REMINDERS !== 'false' && process.env.DATABASE_URL) {
+      const dayMs = 24 * 60 * 60 * 1000;
+      setTimeout(() => runCredentialExpiryReminders().catch((e) => console.error('Expiry reminder job failed:', e)), 30000);
+      setInterval(() => runCredentialExpiryReminders().catch((e) => console.error('Expiry reminder job failed:', e)), dayMs);
+      console.log('Credential expiry reminder job scheduled (daily).');
+    }
   });
 }
 

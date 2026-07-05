@@ -168,6 +168,7 @@ model Credential {
   provider             Provider              @relation(fields: [providerId], references: [id], onDelete: Cascade)
   documents            Document[]
   verificationRequests VerificationRequest[]
+  expiryReminders      CredentialExpiryReminder[]
 
   @@index([providerId])
   @@index([expiryDate])
@@ -583,6 +584,19 @@ model NotificationRule {
   updatedAt DateTime @updatedAt
 
   @@map("notification_rules")
+}
+
+model CredentialExpiryReminder {
+  id           String   @id @default(cuid())
+  credentialId String
+  ruleId       String
+  sentAt       DateTime @default(now())
+
+  credential Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@unique([credentialId, ruleId])
+  @@index([sentAt])
+  @@map("credential_expiry_reminders")
 }
 
 // ─── Audit ─────────────────────────────────────────────────────────────────────

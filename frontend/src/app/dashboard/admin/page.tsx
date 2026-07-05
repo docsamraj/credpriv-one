@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
 import CommitteesPanel from '@/components/admin/CommitteesPanel';
+import WebhooksPanel from '@/components/admin/WebhooksPanel';
+import ThirdPartyVerifiersPanel from '@/components/admin/ThirdPartyVerifiersPanel';
+import NotificationRulesPanel from '@/components/admin/NotificationRulesPanel';
 
 interface Department {
   id: string;
@@ -49,6 +52,8 @@ export default function AdminDashboard() {
     { id: 'workflow', label: 'Workflow Stages' },
     { id: 'documents', label: 'Required Documents' },
     { id: 'notifications', label: 'Notification Rules' },
+    { id: 'webhooks', label: 'Webhooks' },
+    { id: 'verifiers', label: 'BGV Agencies' },
   ];
 
   return (
@@ -134,14 +139,11 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {activeTab === 'notifications' && (
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>Notification Rules</h3>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-            Configure email/SMS/in-app notification rules for expiry reminders and status changes.
-          </p>
-        </div>
-      )}
+      {activeTab === 'notifications' && <NotificationRulesPanel />}
+
+      {activeTab === 'webhooks' && <WebhooksPanel />}
+
+      {activeTab === 'verifiers' && <ThirdPartyVerifiersPanel />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { asyncHandler, success } from '../utils/response';
 import { paramId } from '../utils/params';
+import { runCredentialExpiryReminders } from '../jobs/credential-expiry.job';
 import { committeeMemberService } from '../services/committee-member.service';
 
 const router = Router();
@@ -74,7 +75,7 @@ router.get(
 
 router.get(
   '/webhooks',
-  requirePermission('integration.admin'),
+  requirePermission('integration.read'),
   asyncHandler(async (_req, res) => {
     const subs = await prisma.webhookSubscription.findMany({
       include: { system: { select: { code: true, name: true } } },
@@ -101,6 +102,24 @@ router.post(
       },
     });
     success(res, sub, 'Webhook subscription created', 201);
+  })
+);
+
+router.get(
+  '/integration-systems',
+  requirePermission('integration.read'),
+  asyncHandler(async (_req, res) => {
+    const systems = await prisma.integrationSystem.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
+    success(res, systems);
+  })
+);
+
+router.post(
+  '/jobs/credential-expiry-reminders',
+  requirePermission('audit.read'),
+  asyncHandler(async (_req, res) => {
+    const result = await runCredentialExpiryReminders();
+    success(res, result, 'Credential expiry reminder job completed');
   })
 );
 

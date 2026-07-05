@@ -77,6 +77,13 @@ interface Document {
   uploadedAt: string;
 }
 
+interface DocumentComplianceReport {
+  complete: boolean;
+  requiredCount: number;
+  uploadedCount: number;
+  missing: Array<{ type: string; name: string }>;
+}
+
 const STATUS_BADGE: Record<string, string> = {
   DRAFT: 'badge-neutral',
   SUBMITTED: 'badge-info',
@@ -120,6 +127,7 @@ export default function ProviderDashboard() {
   const [privilegeLevels, setPrivilegeLevels] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pendingUpload, setPendingUpload] = useState<{ type: string; name: string } | null>(null);
+  const [docCompliance, setDocCompliance] = useState<DocumentComplianceReport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeApp = applications.find((a) => !['APPROVED', 'DENIED'].includes(a.status));
@@ -202,6 +210,17 @@ export default function ProviderDashboard() {
       setPrivilegeLevels(levels);
     }
   }, [selectedApp]);
+
+  useEffect(() => {
+    const app = selectedApp || activeApp;
+    if (!app?.id || !['DOCUMENT_UPLOAD', 'CREDENTIALING'].includes(app.workflowPhase || '')) {
+      setDocCompliance(null);
+      return;
+    }
+    api<DocumentComplianceReport>(`/api/applications/${app.id}/document-compliance`)
+      .then(setDocCompliance)
+      .catch(() => setDocCompliance(null));
+  }, [selectedApp?.id, activeApp?.id, activeApp?.workflowPhase, selectedApp?.workflowPhase]);
 
   function showMessage(type: 'success' | 'error', text: string) {
     setMessage({ type, text });
@@ -320,6 +339,12 @@ export default function ProviderDashboard() {
       });
       setDocuments((prev) => [doc, ...prev.filter((d) => d.type !== pendingUpload.type)]);
       showMessage('success', `${pendingUpload.name} uploaded`);
+      const app = selectedApp || activeApp;
+      if (app?.id) {
+        api<DocumentComplianceReport>(`/api/applications/${app.id}/document-compliance`)
+          .then(setDocCompliance)
+          .catch(() => undefined);
+      }
     } catch (err) {
       showMessage('error', err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -413,6 +438,16 @@ export default function ProviderDashboard() {
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
             Upload 10th, 12th, degree certificates, medical/nursing license, and government ID as required for your role.
           </p>
+          {docCompliance && (
+            <p style={{ fontSize: '0.875rem', marginTop: '0.75rem' }}>
+              Progress: <strong>{docCompliance.uploadedCount}/{docCompliance.requiredCount}</strong> required documents uploaded
+              {docCompliance.complete ? (
+                <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Ready for staff review</span>
+              ) : (
+                <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>{docCompliance.missing.length} missing</span>
+              )}
+            </p>
+          )}
           <div style={{ marginTop: '1rem' }}>
             {(requiredDocs.length > 0 ? requiredDocs : []).map((doc) => {
               const uploaded = uploadedTypes.has(doc.type);

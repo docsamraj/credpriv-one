@@ -30,6 +30,7 @@ model User {
   tasks              Task[]              @relation("TaskAssignee")
   notifications      Notification[]
   verificationRequests VerificationRequest[] @relation("VerifiedBy")
+  dataExchangeLogs   DataExchangeLog[]
 
   @@map("users")
 }
@@ -123,6 +124,7 @@ model Application {
   jobDescriptionId     String?
   submittedAt          DateTime?
   credentialingCompleteAt DateTime?
+  documentsCompleteAt  DateTime?
   privilegeRequestedAt DateTime?
   committeeReady       Boolean   @default(false)
   committeeReadyAt     DateTime?
@@ -548,8 +550,83 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// ─── Interoperability & External Systems ───────────────────────────────────────
+// Extensible registry for HIS/EMR/HRIS/NABH and future connectors.
+
+model IntegrationSystem {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. HOSPITAL_HIS, NABH_REGISTRY
+  name        String
+  systemType  String   // HIS, EMR, HRIS, REGISTRY, NABH, OTHER
+  baseUrl     String?
+  isActive    Boolean  @default(true)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  externalIds ExternalIdentifier[]
+  webhooks    WebhookSubscription[]
+  exchangeLogs DataExchangeLog[]
+
+  @@map("integration_systems")
+}
+
+model ExternalIdentifier {
+  id           String   @id @default(cuid())
+  systemId     String
+  entityType   String   // PROVIDER, APPLICATION, CREDENTIAL, USER, etc.
+  entityId     String
+  externalId   String
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  system IntegrationSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@unique([systemId, entityType, externalId])
+  @@index([entityType, entityId])
+  @@map("external_identifiers")
+}
+
+model WebhookSubscription {
+  id         String   @id @default(cuid())
+  systemId   String
+  event      String   // APPLICATION_APPROVED, PRIVILEGE_GRANTED, etc.
+  targetUrl  String
+  secretHash String?
+  isActive   Boolean  @default(true)
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  system IntegrationSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@index([event, isActive])
+  @@map("webhook_subscriptions")
+}
+
+model DataExchangeLog {
+  id          String   @id @default(cuid())
+  direction   String   // INBOUND, OUTBOUND
+  format      String   // FHIR_R4, JSON, CSV, HL7_V2 (reserved)
+  entityType  String
+  entityId    String?
+  systemId    String?
+  userId      String?
+  payloadHash String?
+  status      String   @default("SUCCESS") // SUCCESS, FAILED, PARTIAL
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  system IntegrationSystem? @relation(fields: [systemId], references: [id], onDelete: SetNull)
+  user   User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("data_exchange_logs")
+}
+
 // TODO: Multi-tenant support — add Hospital/Tenant model with tenantId on all entities
-// TODO: Integration webhooks — add WebhookSubscription model for HIS/EMR/HRIS
 
 // ─── Staff Taxonomy & Job Descriptions ─────────────────────────────────────────
 

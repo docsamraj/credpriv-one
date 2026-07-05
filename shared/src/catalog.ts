@@ -27,6 +27,7 @@ export enum TechnicianSubtype {
   ICU = 'ICU',
   SICU = 'SICU',
   HDU = 'HDU',
+  PERFUSIONIST = 'PERFUSIONIST',
 }
 
 export type StaffSubtypeCode = DoctorSubtype | NurseSubtype | TechnicianSubtype;
@@ -82,6 +83,7 @@ export const STAFF_SUBTYPES: StaffSubtypeInfo[] = [
   { code: TechnicianSubtype.ICU, name: 'ICU', category: StaffCategory.TECHNICIAN },
   { code: TechnicianSubtype.SICU, name: 'SICU', category: StaffCategory.TECHNICIAN },
   { code: TechnicianSubtype.HDU, name: 'HDU', category: StaffCategory.TECHNICIAN },
+  { code: TechnicianSubtype.PERFUSIONIST, name: 'Perfusionist', category: StaffCategory.TECHNICIAN },
 ];
 
 export const CATEGORY_LABELS: Record<StaffCategory, string> = {

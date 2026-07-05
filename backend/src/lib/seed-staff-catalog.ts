@@ -135,6 +135,15 @@ const JOB_DESCRIPTION_TEMPLATES: Record<string, { title: string; items: { name: 
       { name: 'Advanced airway equipment assist', code: 'AIRWAY_ASSIST', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
     ],
   },
+  [TechnicianSubtype.PERFUSIONIST]: {
+    title: 'Perfusionist — Clinical Privileges',
+    items: [
+      { name: 'Cardiopulmonary bypass setup & operation', code: 'CPB_OPERATION', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'ECMO / mechanical circulatory support', code: 'ECMO_MCS', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
+      { name: 'Blood conservation & autotransfusion', code: 'BLOOD_CONSERVATION', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Independent paediatric CPB', code: 'PEDIATRIC_CPB', defaultLevel: PrivilegeGrantLevel.NONE },
+    ],
+  },
 };
 
 export async function seedStaffCatalog(prisma: PrismaTx) {
@@ -144,7 +153,7 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
   for (const [idx, cat] of [
     { code: StaffCategory.DOCTOR, name: 'Doctors', description: 'Consultants, Associate Consultants, RMOs' },
     { code: StaffCategory.NURSE, name: 'Nurses', description: 'Senior and Fresher nurses' },
-    { code: StaffCategory.TECHNICIAN, name: 'Technicians', description: 'CSSD, OT, Cath Lab, Neuro, CCU, ICU, SICU, HDU' },
+    { code: StaffCategory.TECHNICIAN, name: 'Technicians', description: 'CSSD, OT, Cath Lab, Neuro, CCU, ICU, SICU, HDU, Perfusionist' },
   ].entries()) {
     const row = await prisma.staffCategory.upsert({
       where: { code: cat.code },

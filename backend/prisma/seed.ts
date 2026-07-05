@@ -338,6 +338,28 @@ async function main() {
     });
   }
 
+  await prisma.integrationSystem.upsert({
+    where: { code: 'HOSPITAL_HIS' },
+    update: { name: 'Hospital Information System', systemType: 'HIS', isActive: true },
+    create: {
+      code: 'HOSPITAL_HIS',
+      name: 'Hospital Information System',
+      systemType: 'HIS',
+      metadata: { description: 'Placeholder for HIS/EMR interoperability — map external IDs via /api/integrations/external-ids' },
+    },
+  });
+
+  await prisma.integrationSystem.upsert({
+    where: { code: 'NABH_REGISTRY' },
+    update: { name: 'NABH Accreditation Registry', systemType: 'NABH', isActive: true },
+    create: {
+      code: 'NABH_REGISTRY',
+      name: 'NABH Accreditation Registry',
+      systemType: 'NABH',
+      metadata: { description: 'Reserved for NABH quality accreditation data exchange' },
+    },
+  });
+
   console.log('Seed complete!');
   console.log('Demo accounts (password: Password123!):');
   console.log('  admin@credpriv.hospital — System Admin');

@@ -19,6 +19,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'document.read', 'verification.create', 'verification.update',
     'provider.read', 'task.read', 'task.update',
     'committee.mark_ready', 'job_description.manage', 'committee.manage',
+    'integration.read', 'integration.export',
   ],
   [UserRole.DEPARTMENT_CHAIR]: [
     'application.read', 'provider.read', 'privilege.read',
@@ -36,10 +37,12 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.ADMINISTRATOR]: [
     'application.read', 'provider.read', 'analytics.read',
     'committee.read', 'audit.read', 'job_description.manage',
+    'integration.read', 'integration.export',
   ],
   [UserRole.QUALITY_ACCREDITATION]: [
     'application.read', 'provider.read', 'analytics.read',
     'audit.read', 'monitoring.read',
+    'integration.read', 'integration.export',
   ],
   [UserRole.SYSTEM_ADMIN]: ['*'],
 };

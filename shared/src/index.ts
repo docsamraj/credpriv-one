@@ -250,3 +250,4 @@ export interface OcrExtractionResult {
 }
 
 export * from './catalog';
+export * from './interop';

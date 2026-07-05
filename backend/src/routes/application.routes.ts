@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { UserRole } from '@credpriv/shared';
 import prisma from '../lib/prisma';
 import { applicationService } from '../services/application.service';
+import { documentComplianceService } from '../services/document-compliance.service';
 import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { asyncHandler, success, AppError } from '../utils/response';
@@ -67,6 +68,15 @@ router.post(
       clinicalUnit: req.body.clinicalUnit,
     });
     success(res, app, 'Application created', 201);
+  })
+);
+
+router.get(
+  '/:id/document-compliance',
+  requirePermission('application.read'),
+  asyncHandler(async (req, res) => {
+    const report = await documentComplianceService.getCompliance(paramId(req.params.id));
+    success(res, report);
   })
 );
 

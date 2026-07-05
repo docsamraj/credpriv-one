@@ -3,6 +3,7 @@ import { AppError } from '../utils/response';
 import { createAuditLog } from '../middleware/audit';
 import { Request } from 'express';
 import { WorkflowPhase } from '@credpriv/shared';
+import { documentComplianceService } from './document-compliance.service';
 
 export class ApplicationService {
   async list(filters?: { status?: string; providerId?: string; committeeReady?: boolean; workflowPhase?: string }) {
@@ -125,11 +126,14 @@ export class ApplicationService {
   }
 
   async completeCredentialing(id: string, req?: Request) {
-    const app = await prisma.application.findUnique({
-      where: { id },
-      include: { provider: { include: { documents: true } } },
-    });
+    const app = await prisma.application.findUnique({ where: { id } });
     if (!app) throw new AppError(404, 'Application not found');
+
+    if (!['DOCUMENT_UPLOAD', 'CREDENTIALING'].includes(app.workflowPhase || '')) {
+      throw new AppError(400, 'Application is not in document upload or credentialing phase');
+    }
+
+    await documentComplianceService.assertComplete(id);
 
     const updated = await prisma.application.update({
       where: { id },
@@ -137,6 +141,7 @@ export class ApplicationService {
         status: 'UNDER_VERIFICATION',
         workflowPhase: WorkflowPhase.PRIVILEGE_REQUEST,
         credentialingCompleteAt: new Date(),
+        documentsCompleteAt: new Date(),
         currentStage: 'PRIVILEGE_REQUEST',
       },
     });

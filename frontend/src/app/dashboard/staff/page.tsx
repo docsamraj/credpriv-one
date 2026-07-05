@@ -35,6 +35,13 @@ interface Application {
   staffSubtype?: { name: string };
 }
 
+interface DocumentComplianceReport {
+  complete: boolean;
+  requiredCount: number;
+  uploadedCount: number;
+  missing: Array<{ type: string; name: string }>;
+}
+
 export default function StaffDashboard() {
   const [activeTab, setActiveTab] = useState<'workflow' | 'job-descriptions' | 'committees'>('workflow');
   const [queues, setQueues] = useState<Queues | null>(null);
@@ -42,6 +49,7 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [docCompliance, setDocCompliance] = useState<DocumentComplianceReport | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -62,6 +70,16 @@ export default function StaffDashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!selectedApp) {
+      setDocCompliance(null);
+      return;
+    }
+    api<DocumentComplianceReport>(`/api/applications/${selectedApp.id}/document-compliance`)
+      .then(setDocCompliance)
+      .catch(() => setDocCompliance(null));
+  }, [selectedApp?.id]);
 
   function showMessage(type: 'success' | 'error', text: string) {
     setMessage({ type, text });
@@ -226,10 +244,12 @@ export default function StaffDashboard() {
                         type="button"
                         className="btn btn-primary"
                         style={{ padding: '0.375rem 0.75rem' }}
-                        onClick={() => handleCompleteCredentialing(app.id)}
+                        onClick={async () => {
+                          setSelectedApp(app);
+                        }}
                         disabled={actionLoading}
                       >
-                        Complete Credentialing
+                        Review Docs
                       </button>
                     )}
                     {!app.committeeReady && app.status === 'UNDER_VERIFICATION' && !app.workflowPhase && (
@@ -296,14 +316,37 @@ export default function StaffDashboard() {
               <dd>{selectedApp.status}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Committee Ready</dt>
               <dd>{selectedApp.committeeReady ? 'Yes' : 'No'}</dd>
+              {docCompliance && (
+                <>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Documents</dt>
+                  <dd>
+                    {docCompliance.uploadedCount}/{docCompliance.requiredCount} uploaded
+                    {docCompliance.complete ? (
+                      <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Complete</span>
+                    ) : (
+                      <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>Incomplete</span>
+                    )}
+                  </dd>
+                </>
+              )}
             </dl>
+            {docCompliance && !docCompliance.complete && docCompliance.missing.length > 0 && (
+              <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--color-bg)', borderRadius: 8, fontSize: '0.875rem' }}>
+                <strong>Missing documents:</strong>
+                <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+                  {docCompliance.missing.map((m) => (
+                    <li key={m.type}>{m.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {['DOCUMENT_UPLOAD', 'CREDENTIALING'].includes(selectedApp.workflowPhase || '') && (
               <button
                 type="button"
                 className="btn btn-primary"
                 style={{ marginTop: '1.5rem', width: '100%' }}
                 onClick={() => handleCompleteCredentialing(selectedApp.id)}
-                disabled={actionLoading}
+                disabled={actionLoading || (docCompliance !== null && !docCompliance.complete)}
               >
                 Complete Credentialing → Privilege Request
               </button>

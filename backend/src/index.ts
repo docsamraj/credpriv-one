@@ -15,7 +15,9 @@ import adminRoutes from './routes/admin.routes';
 import documentRoutes from './routes/document.routes';
 import catalogRoutes from './routes/catalog.routes';
 import jobDescriptionRoutes from './routes/job-description.routes';
+import integrationRoutes from './routes/integration.routes';
 import { seedStaffCatalog } from './lib/seed-staff-catalog';
+import { securityHeaders, rateLimit } from './middleware/security';
 
 dotenv.config();
 
@@ -23,9 +25,11 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware
+app.set('trust proxy', 1);
+app.use(securityHeaders);
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Health check — required for Railway
 app.get('/health', (_req, res) => {
@@ -67,6 +71,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/job-descriptions', jobDescriptionRoutes);
+app.use('/api/integrations', integrationRoutes);
 
 // 404 handler
 app.use((_req, res) => {

@@ -2,12 +2,15 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { authService } from '../services/auth.service';
 import { authenticate } from '../middleware/auth';
+import { rateLimit } from '../middleware/security';
 import { asyncHandler, success } from '../utils/response';
 
 const router = Router();
+const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, keyPrefix: 'auth' });
 
 router.post(
   '/register',
+  authRateLimit,
   body('email').isEmail(),
   body('password').isLength({ min: 8 }),
   body('firstName').notEmpty(),
@@ -20,6 +23,7 @@ router.post(
 
 router.post(
   '/login',
+  authRateLimit,
   body('email').isEmail(),
   body('password').notEmpty(),
   asyncHandler(async (req, res) => {

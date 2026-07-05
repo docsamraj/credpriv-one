@@ -31,6 +31,15 @@ router.get(
 );
 
 router.get(
+  '/reviews/by-application/:applicationId',
+  requirePermission('committee.review'),
+  asyncHandler(async (req, res) => {
+    const review = await committeeService.getReviewByApplication(paramId(req.params.applicationId));
+    success(res, review);
+  })
+);
+
+router.get(
   '/reviews/:id',
   requirePermission('committee.review'),
   asyncHandler(async (req, res) => {

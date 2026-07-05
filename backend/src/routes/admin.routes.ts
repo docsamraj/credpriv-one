@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { asyncHandler, success } from '../utils/response';
 import { paramId } from '../utils/params';
+import { getCloudflareAiStatus } from '../modules/ai/ai-config';
 import { runCredentialExpiryReminders } from '../jobs/credential-expiry.job';
 import { committeeMemberService } from '../services/committee-member.service';
 
@@ -111,6 +112,14 @@ router.get(
   asyncHandler(async (_req, res) => {
     const systems = await prisma.integrationSystem.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
     success(res, systems);
+  })
+);
+
+router.get(
+  '/ai-status',
+  requirePermission('job_description.manage'),
+  asyncHandler(async (_req, res) => {
+    success(res, getCloudflareAiStatus());
   })
 );
 

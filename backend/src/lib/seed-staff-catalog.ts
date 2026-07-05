@@ -241,6 +241,35 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
     }
   }
 
+  // Perfusionist: unit-specific job descriptions (CTVS OT)
+  const perfusionistId = subtypeIds[TechnicianSubtype.PERFUSIONIST];
+  const perfTemplate = JOB_DESCRIPTION_TEMPLATES[TechnicianSubtype.PERFUSIONIST];
+  if (perfusionistId && perfTemplate) {
+    for (const unit of ['CTVS OT', 'Cardiac OR']) {
+      const jd = await prisma.jobDescription.upsert({
+        where: { subtypeId_clinicalUnit: { subtypeId: perfusionistId, clinicalUnit: unit } },
+        update: { title: `${perfTemplate.title} — ${unit}` },
+        create: {
+          categoryId: categoryIds[StaffCategory.TECHNICIAN],
+          subtypeId: perfusionistId,
+          clinicalUnit: unit,
+          title: `${perfTemplate.title} — ${unit}`,
+          description: `Perfusionist privileges for ${unit}`,
+        },
+      });
+      await prisma.jobDescriptionItem.deleteMany({ where: { jobDescriptionId: jd.id } });
+      await prisma.jobDescriptionItem.createMany({
+        data: perfTemplate.items.map((item, i) => ({
+          jobDescriptionId: jd.id,
+          name: item.name,
+          code: item.code,
+          defaultLevel: item.defaultLevel,
+          sortOrder: i + 1,
+        })),
+      });
+    }
+  }
+
   // Required documents per category
   const docSets: { category: StaffCategory; extra: typeof DOCTOR_EXTRA_DOCS }[] = [
     { category: StaffCategory.DOCTOR, extra: DOCTOR_EXTRA_DOCS },

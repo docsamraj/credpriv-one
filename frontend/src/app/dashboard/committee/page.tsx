@@ -108,6 +108,16 @@ export default function CommitteeDashboard() {
                   <td>{app.jobDescription?.title ?? '—'}</td>
                   <td>{app.privilegeRequests?.length ?? 0}</td>
                   <td>
+                    <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', marginRight: '0.5rem' }} onClick={async () => {
+                      try {
+                        const review = await api<{ id: string }>(`/api/committees/reviews/by-application/${app.id}`);
+                        setSelectedReview(review.id);
+                      } catch {
+                        alert('No committee review found — provider may need to submit privileges first.');
+                      }
+                    }}>
+                      Review Packet
+                    </button>
                     <button type="button" className="btn btn-primary" style={{ padding: '0.375rem 0.75rem' }} onClick={async () => {
                       const full = await api<CommitteeApplication>(`/api/applications/${app.id}`);
                       setGrantApp(full);
@@ -445,6 +455,15 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
       thirdParty?: { name: string; address?: string; mouReference?: string } | null;
       findings?: string;
     }>;
+    documentChecklist: Array<{ type: string; name: string; uploaded: boolean; isRequired: boolean }>;
+    jobDescription?: {
+      title: string;
+      clinicalUnit?: string;
+      description?: string | null;
+      sourceFileName?: string | null;
+      itemCount: number;
+      items: Array<{ name: string; code?: string | null; description?: string | null; defaultLevel: string }>;
+    } | null;
     privilegeMatrix: {
       jobDescriptionTitle?: string;
       items: Array<{ name: string; suggestedLevel: string; requestedLevel?: string | null; grantedLevel?: string | null }>;
@@ -488,7 +507,7 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
 
   const sections = [
     { id: 'summary', label: 'Summary' },
-    { id: 'documents', label: 'Documents' },
+    { id: 'documents', label: 'Documents & JD' },
     { id: 'credentials', label: 'Credentials & PSV' },
     { id: 'background', label: 'Background Verification' },
     { id: 'privileges', label: 'Privilege Matrix' },
@@ -575,11 +594,29 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
 
             {activeSection === 'documents' && (
               <div>
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Required document checklist</h4>
+                <table className="table" style={{ marginBottom: '1.5rem' }}>
+                  <thead><tr><th>Required document</th><th>Type</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {(packet.documentChecklist || []).map((item, i) => (
+                      <tr key={i}>
+                        <td>{item.name}</td>
+                        <td>{item.type}</td>
+                        <td>
+                          <span className={`badge ${item.uploaded ? 'badge-success' : 'badge-danger'}`}>
+                            {item.uploaded ? 'Uploaded' : 'Missing'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Uploaded files</h4>
                 <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
-                  Compliance: {packet.documentCompliance.uploadedCount}/{packet.documentCompliance.requiredCount}
-                  {packet.documentCompliance.complete ? ' ✓ Complete' : ` — ${packet.documentCompliance.missing.length} missing`}
+                  {packet.documentCompliance.uploadedCount}/{packet.documentCompliance.requiredCount} required documents on file
                 </p>
-                <table className="table">
+                <table className="table" style={{ marginBottom: '1.5rem' }}>
                   <thead><tr><th>Document</th><th>Type</th><th>Uploaded</th></tr></thead>
                   <tbody>
                     {packet.documents.map((d, i) => (
@@ -587,6 +624,35 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
                     ))}
                   </tbody>
                 </table>
+
+                {packet.jobDescription && (
+                  <>
+                    <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>Job description — {packet.jobDescription.title}</h4>
+                    {packet.jobDescription.clinicalUnit && (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Unit: {packet.jobDescription.clinicalUnit}</p>
+                    )}
+                    {packet.jobDescription.sourceFileName && (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Source file: {packet.jobDescription.sourceFileName}</p>
+                    )}
+                    {packet.jobDescription.description && (
+                      <p style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>{packet.jobDescription.description}</p>
+                    )}
+                    <table className="table">
+                      <thead><tr><th>Privilege item</th><th>Suggested</th></tr></thead>
+                      <tbody>
+                        {packet.jobDescription.items.map((item, i) => (
+                          <tr key={i}>
+                            <td>
+                              <strong>{item.name}</strong>
+                              {item.description && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.description}</div>}
+                            </td>
+                            <td>{item.defaultLevel.replace(/_/g, ' ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
               </div>
             )}
 

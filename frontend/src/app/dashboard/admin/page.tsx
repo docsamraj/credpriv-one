@@ -7,6 +7,7 @@ import CommitteesPanel from '@/components/admin/CommitteesPanel';
 import WebhooksPanel from '@/components/admin/WebhooksPanel';
 import ThirdPartyVerifiersPanel from '@/components/admin/ThirdPartyVerifiersPanel';
 import NotificationRulesPanel from '@/components/admin/NotificationRulesPanel';
+import AiConfigPanel from '@/components/admin/AiConfigPanel';
 
 interface Department {
   id: string;
@@ -54,6 +55,7 @@ export default function AdminDashboard() {
     { id: 'notifications', label: 'Notification Rules' },
     { id: 'webhooks', label: 'Webhooks' },
     { id: 'verifiers', label: 'BGV Agencies' },
+    { id: 'ai', label: 'Cloudflare AI' },
   ];
 
   return (
@@ -144,6 +146,8 @@ export default function AdminDashboard() {
       {activeTab === 'webhooks' && <WebhooksPanel />}
 
       {activeTab === 'verifiers' && <ThirdPartyVerifiersPanel />}
+
+      {activeTab === 'ai' && <AiConfigPanel />}
     </div>
   );
 }

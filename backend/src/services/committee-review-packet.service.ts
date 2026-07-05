@@ -240,6 +240,24 @@ export class CommitteeReviewPacketService {
         jobDescriptionTitle: app.jobDescription?.title,
         items: privilegeMatrix,
       },
+      jobDescription: app.jobDescription
+        ? {
+            id: app.jobDescription.id,
+            title: app.jobDescription.title,
+            clinicalUnit: app.clinicalUnit || app.jobDescription.clinicalUnit,
+            description: app.jobDescription.description,
+            sourceFileName: app.jobDescription.sourceFileName,
+            itemCount: app.jobDescription.items.length,
+            items: app.jobDescription.items.map((item) => ({
+              id: item.id,
+              name: item.name,
+              code: item.code,
+              description: item.description,
+              defaultLevel: item.defaultLevel,
+            })),
+          }
+        : null,
+      documentChecklist: documentCompliance.items,
       existingPrivileges: provider.privileges.map((p) => ({
         procedure: p.procedure?.name || p.name,
         category: p.category?.name,

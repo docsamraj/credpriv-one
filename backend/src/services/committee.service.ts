@@ -53,6 +53,18 @@ export class CommitteeService {
     });
   }
 
+  async getReviewByApplication(applicationId: string) {
+    const review = await prisma.committeeReview.findFirst({
+      where: { applicationId, status: { in: ['PENDING', 'IN_REVIEW'] } },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        meeting: { select: { id: true, title: true, scheduledAt: true } },
+      },
+    });
+    if (!review) throw new AppError(404, 'No active committee review for this application');
+    return review;
+  }
+
   async getReviewPacket(reviewId: string) {
     return committeeReviewPacketService.build(reviewId);
   }

@@ -2,6 +2,7 @@ import prisma from '../lib/prisma';
 import { AppError } from '../utils/response';
 import { createAuditLog } from '../middleware/audit';
 import { Request } from 'express';
+import { committeeReviewPacketService } from './committee-review-packet.service';
 
 export class CommitteeService {
   async listCommittees() {
@@ -50,28 +51,7 @@ export class CommitteeService {
   }
 
   async getReviewPacket(reviewId: string) {
-    const review = await prisma.committeeReview.findUnique({
-      where: { id: reviewId },
-      include: {
-        application: {
-          include: {
-            provider: {
-              include: {
-                user: true,
-                profile: { include: { department: true, specialty: true } },
-                credentials: { include: { verificationRequests: true } },
-                privileges: { include: { procedure: true, category: true } },
-                documents: true,
-              },
-            },
-          },
-        },
-        decisions: { include: { decidedBy: { select: { firstName: true, lastName: true } } } },
-      },
-    });
-
-    if (!review) throw new AppError(404, 'Review not found');
-    return review;
+    return committeeReviewPacketService.build(reviewId);
   }
 
   async recordDecision(

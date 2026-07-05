@@ -416,26 +416,62 @@ function MinutesOfMeetingModal({
 }
 
 function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: () => void }) {
-  const [packet, setPacket] = useState<Record<string, unknown> | null>(null);
+  interface ReviewPacket {
+    summary: {
+      providerId: string;
+      providerName: string;
+      email: string;
+      npi?: string;
+      licenseNo?: string;
+      department?: string;
+      specialty?: string;
+      staffCategory?: string;
+      staffSubtype?: string;
+      clinicalUnit?: string | null;
+      applicationType: string;
+      workflowPhase: string;
+      status: string;
+      submittedAt?: string;
+    };
+    flags: Array<{ severity: string; code: string; message: string }>;
+    documentCompliance: { complete: boolean; uploadedCount: number; requiredCount: number; missing: Array<{ name: string }> };
+    documents: Array<{ name: string; type: string; uploadedAt: string }>;
+    credentials: Array<{ title: string; type: string; status: string; expiryDate?: string; psv: Array<{ status: string; source?: string }> }>;
+    backgroundVerifications: Array<{
+      verificationType: string;
+      verifierType: string;
+      status: string;
+      performedBy?: string | null;
+      thirdParty?: { name: string; address?: string; mouReference?: string } | null;
+      findings?: string;
+    }>;
+    privilegeMatrix: {
+      jobDescriptionTitle?: string;
+      items: Array<{ name: string; suggestedLevel: string; requestedLevel?: string | null; grantedLevel?: string | null }>;
+    };
+    existingPrivileges: Array<{ procedure: string; status: string }>;
+    priorApplications: Array<{ type: string; status: string; updatedAt: string }>;
+    review: { decisions: Array<{ decisionType: string; rationale?: string }> };
+  }
+
+  const [packet, setPacket] = useState<ReviewPacket | null>(null);
   const [aiSummary, setAiSummary] = useState<{ summary: string; flags: Array<{ severity: string; message: string }> } | null>(null);
   const [decision, setDecision] = useState('');
   const [rationale, setRationale] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState('summary');
 
   useEffect(() => {
-    api<Record<string, unknown>>(`/api/committees/reviews/${reviewId}`).then(setPacket).catch(console.error);
+    api<ReviewPacket>(`/api/committees/reviews/${reviewId}`).then(setPacket).catch(console.error);
   }, [reviewId]);
 
   useEffect(() => {
-    if (packet) {
-      const providerId = (packet as { application?: { provider?: { id?: string } } }).application?.provider?.id;
-      if (providerId) {
-        api<{ summary: string; flags: Array<{ severity: string; message: string }> }>(
-          `/api/committees/ai-summary/${providerId}`
-        ).then(setAiSummary).catch(console.error);
-      }
+    if (packet?.summary.providerId) {
+      api<{ summary: string; flags: Array<{ severity: string; message: string }> }>(
+        `/api/committees/ai-summary/${packet.summary.providerId}`
+      ).then(setAiSummary).catch(console.error);
     }
-  }, [packet]);
+  }, [packet?.summary.providerId]);
 
   async function submitDecision() {
     if (!decision) return;
@@ -450,6 +486,15 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
     }
   }
 
+  const sections = [
+    { id: 'summary', label: 'Summary' },
+    { id: 'documents', label: 'Documents' },
+    { id: 'credentials', label: 'Credentials & PSV' },
+    { id: 'background', label: 'Background Verification' },
+    { id: 'privileges', label: 'Privilege Matrix' },
+    { id: 'decision', label: 'Decision' },
+  ];
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex',
@@ -457,58 +502,181 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
     }}
       onClick={onClose}
     >
-      <div className="card" style={{ width: '90%', maxWidth: 800, maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <h3>Committee Review Packet</h3>
+      <div className="card" style={{ width: '95%', maxWidth: 960, maxHeight: '92vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <div>
+            <h3>Committee Review Packet</h3>
+            {packet && (
+              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+                {packet.summary.providerName} — {packet.summary.staffSubtype}
+                {packet.summary.clinicalUnit ? ` · ${packet.summary.clinicalUnit}` : ''}
+              </p>
+            )}
+          </div>
           <button type="button" onClick={onClose} className="btn btn-secondary">Close</button>
         </div>
 
-        {message && (
-          <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem', marginBottom: '1rem' }}>{message}</p>
-        )}
+        {message && <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem', marginBottom: '1rem' }}>{message}</p>}
 
-        {aiSummary && (
-          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--color-bg)', borderRadius: 8 }}>
-            <h4 style={{ marginBottom: '0.5rem' }}>AI Case Summary</h4>
-            <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>{aiSummary.summary}</p>
-            {aiSummary.flags.length > 0 && (
-              <ul className="flag-list">
-                {aiSummary.flags.map((flag, i) => (
-                  <li key={i} className={`flag-item flag-${flag.severity.toLowerCase()}`}>
-                    {flag.message}
-                  </li>
-                ))}
-              </ul>
+        {!packet ? (
+          <p>Loading review packet...</p>
+        ) : (
+          <>
+            {(packet.flags.length > 0 || aiSummary?.flags.length) && (
+              <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: '#fff3cd', borderRadius: 8 }}>
+                <strong style={{ fontSize: '0.875rem' }}>Review flags</strong>
+                <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.8rem' }}>
+                  {packet.flags.map((f, i) => <li key={`f-${i}`}>{f.message}</li>)}
+                  {aiSummary?.flags.map((f, i) => <li key={`ai-${i}`}>{f.message}</li>)}
+                </ul>
+              </div>
             )}
-          </div>
+
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              {sections.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`btn ${activeSection === s.id ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }}
+                  onClick={() => setActiveSection(s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {activeSection === 'summary' && (
+              <div style={{ fontSize: '0.875rem' }}>
+                {aiSummary && (
+                  <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--color-bg)', borderRadius: 8 }}>
+                    <h4 style={{ marginBottom: '0.5rem' }}>AI Case Summary</h4>
+                    <p>{aiSummary.summary}</p>
+                  </div>
+                )}
+                <dl style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.4rem 1rem' }}>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Email</dt><dd>{packet.summary.email}</dd>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>NPI / License</dt><dd>{packet.summary.npi || '—'} / {packet.summary.licenseNo || '—'}</dd>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Department</dt><dd>{packet.summary.department || '—'}</dd>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Specialty</dt><dd>{packet.summary.specialty || '—'}</dd>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Application</dt><dd>{packet.summary.applicationType} · {packet.summary.status}</dd>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Submitted</dt><dd>{packet.summary.submittedAt ? new Date(packet.summary.submittedAt).toLocaleDateString() : '—'}</dd>
+                </dl>
+                {packet.priorApplications.length > 0 && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <h4 style={{ fontSize: '0.875rem' }}>Prior applications</h4>
+                    {packet.priorApplications.map((a, i) => (
+                      <div key={i} style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{a.type} — {a.status}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeSection === 'documents' && (
+              <div>
+                <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
+                  Compliance: {packet.documentCompliance.uploadedCount}/{packet.documentCompliance.requiredCount}
+                  {packet.documentCompliance.complete ? ' ✓ Complete' : ` — ${packet.documentCompliance.missing.length} missing`}
+                </p>
+                <table className="table">
+                  <thead><tr><th>Document</th><th>Type</th><th>Uploaded</th></tr></thead>
+                  <tbody>
+                    {packet.documents.map((d, i) => (
+                      <tr key={i}><td>{d.name}</td><td>{d.type}</td><td>{new Date(d.uploadedAt).toLocaleDateString()}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeSection === 'credentials' && (
+              <div>
+                {packet.credentials.map((c, i) => (
+                  <div key={i} style={{ padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+                    <strong>{c.title}</strong> — <span className={`badge badge-${c.status === 'VERIFIED' ? 'success' : 'warning'}`}>{c.status}</span>
+                    {c.expiryDate && <span style={{ marginLeft: '0.5rem', color: 'var(--color-text-muted)' }}>Exp: {new Date(c.expiryDate).toLocaleDateString()}</span>}
+                    {c.psv.length > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                        PSV: {c.psv.map((p) => `${p.status}${p.source ? ` (${p.source})` : ''}`).join('; ')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeSection === 'background' && (
+              <div>
+                {packet.backgroundVerifications.length === 0 ? (
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>No background verification on file.</p>
+                ) : (
+                  packet.backgroundVerifications.map((bv, i) => (
+                    <div key={i} style={{ padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <strong>{bv.verificationType.replace(/_/g, ' ')}</strong>
+                        <span className={`badge ${bv.status === 'CLEAR' ? 'badge-success' : bv.status === 'ADVERSE' ? 'badge-danger' : 'badge-warning'}`}>{bv.status}</span>
+                      </div>
+                      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                        {bv.verifierType === 'HOSPITAL' ? `Hospital — ${bv.performedBy || 'staff'}` : `Third party — ${bv.thirdParty?.name || '—'}`}
+                      </div>
+                      {bv.thirdParty?.address && <div style={{ fontSize: '0.75rem' }}>{bv.thirdParty.address}</div>}
+                      {bv.thirdParty?.mouReference && <div style={{ fontSize: '0.75rem' }}>MOU: {bv.thirdParty.mouReference}</div>}
+                      {bv.findings && <div style={{ marginTop: '0.25rem' }}>Findings: {bv.findings}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeSection === 'privileges' && (
+              <div>
+                <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>{packet.privilegeMatrix.jobDescriptionTitle}</p>
+                <table className="table">
+                  <thead><tr><th>Privilege item</th><th>Suggested</th><th>Requested</th><th>Granted</th></tr></thead>
+                  <tbody>
+                    {packet.privilegeMatrix.items.map((item, i) => (
+                      <tr key={i}>
+                        <td>{item.name}</td>
+                        <td>{item.suggestedLevel.replace(/_/g, ' ')}</td>
+                        <td>{item.requestedLevel?.replace(/_/g, ' ') || '—'}</td>
+                        <td>{item.grantedLevel?.replace(/_/g, ' ') || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {packet.existingPrivileges.length > 0 && (
+                  <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                    <strong>Existing privileges:</strong> {packet.existingPrivileges.map((p) => p.procedure).join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeSection === 'decision' && (
+              <div>
+                <div className="form-group">
+                  <label>Decision</label>
+                  <select className="form-input" value={decision} onChange={(e) => setDecision(e.target.value)}>
+                    <option value="">Select decision...</option>
+                    <option value="APPROVE">Approve</option>
+                    <option value="DENY">Deny</option>
+                    <option value="DEFER">Defer</option>
+                    <option value="RETURN_FOR_INFO">Return for Info</option>
+                    <option value="GRANT_TEMPORARY">Grant Temporary</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Rationale</label>
+                  <textarea className="form-input" rows={3} value={rationale} onChange={(e) => setRationale(e.target.value)} placeholder="Document decision rationale..." />
+                </div>
+                <button type="button" className="btn btn-primary" onClick={submitDecision} disabled={!decision}>
+                  Record Decision
+                </button>
+              </div>
+            )}
+          </>
         )}
-
-        <div className="form-group">
-          <label>Decision</label>
-          <select className="form-input" value={decision} onChange={(e) => setDecision(e.target.value)}>
-            <option value="">Select decision...</option>
-            <option value="APPROVE">Approve</option>
-            <option value="DENY">Deny</option>
-            <option value="DEFER">Defer</option>
-            <option value="RETURN_FOR_INFO">Return for Info</option>
-            <option value="GRANT_TEMPORARY">Grant Temporary</option>
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label>Rationale</label>
-          <textarea
-            className="form-input"
-            rows={3}
-            value={rationale}
-            onChange={(e) => setRationale(e.target.value)}
-            placeholder="Document decision rationale..."
-          />
-        </div>
-
-        <button type="button" className="btn btn-primary" onClick={submitDecision} disabled={!decision}>
-          Record Decision
-        </button>
       </div>
     </div>
   );

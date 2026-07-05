@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { X } from 'lucide-react';
 import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
 import CommitteesPanel from '@/components/admin/CommitteesPanel';
+import BackgroundVerificationPanel from '@/components/staff/BackgroundVerificationPanel';
 
 interface Queues {
   newApplications: number;
@@ -351,6 +352,7 @@ export default function StaffDashboard() {
                 Complete Credentialing → Privilege Request
               </button>
             )}
+            <BackgroundVerificationPanel applicationId={selectedApp.id} />
             {!selectedApp.committeeReady && selectedApp.status === 'UNDER_VERIFICATION' && !selectedApp.workflowPhase && (
               <button
                 type="button"

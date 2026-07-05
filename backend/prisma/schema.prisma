@@ -31,6 +31,7 @@ model User {
   notifications      Notification[]
   verificationRequests VerificationRequest[] @relation("VerifiedBy")
   dataExchangeLogs   DataExchangeLog[]
+  backgroundVerificationsPerformed BackgroundVerification[] @relation("BgVerifiedBy")
 
   @@map("users")
 }
@@ -139,6 +140,7 @@ model Application {
   committeeReviews   CommitteeReview[]
   tasks              Task[]
   privilegeRequests  ApplicationPrivilegeRequest[]
+  backgroundVerifications BackgroundVerification[]
 
   @@index([status])
   @@index([providerId])
@@ -215,6 +217,62 @@ model VerificationRequest {
   @@index([status])
   @@index([credentialId])
   @@map("verification_requests")
+}
+
+// ─── Background Verification (Hospital / Third-party) ─────────────────────────
+
+model ThirdPartyVerifier {
+  id              String    @id @default(cuid())
+  name            String
+  address         String?
+  city            String?
+  state           String?
+  pinCode         String?
+  contactPerson   String?
+  contactPhone    String?
+  contactEmail    String?
+  mouReference    String?
+  mouValidFrom    DateTime?
+  mouValidTo      DateTime?
+  mouDocumentPath String?
+  servicesOffered String?
+  isActive        Boolean   @default(true)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  backgroundVerifications BackgroundVerification[]
+
+  @@map("third_party_verifiers")
+}
+
+model BackgroundVerification {
+  id                   String    @id @default(cuid())
+  applicationId        String
+  verificationType     String    @default("BACKGROUND_CHECK")
+  verifierType         String    // HOSPITAL, THIRD_PARTY
+  performedByUserId      String?
+  thirdPartyVerifierId String?
+  thirdPartyName       String?
+  thirdPartyAddress    String?
+  mouReference         String?
+  mouDocumentPath      String?
+  status               String    @default("PENDING")
+  initiatedAt          DateTime  @default(now())
+  completedAt          DateTime?
+  findings             String?   @db.Text
+  remarks              String?
+  metadata             Json      @default("{}")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  application        Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  performedBy        User?               @relation("BgVerifiedBy", fields: [performedByUserId], references: [id], onDelete: SetNull)
+  thirdPartyVerifier ThirdPartyVerifier? @relation(fields: [thirdPartyVerifierId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([status])
+  @@map("background_verifications")
 }
 
 // ─── Privileging ───────────────────────────────────────────────────────────────

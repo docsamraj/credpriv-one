@@ -360,6 +360,27 @@ async function main() {
     },
   });
 
+  await prisma.thirdPartyVerifier.upsert({
+    where: { id: 'seed-bg-agency-1' },
+    update: {},
+    create: {
+      id: 'seed-bg-agency-1',
+      name: 'SecureVerify Background Services Pvt Ltd',
+      address: '402, Business Park, Andheri East',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      pinCode: '400069',
+      contactPerson: 'Verification Desk',
+      contactPhone: '+91-22-4000-1234',
+      contactEmail: 'credentialing@secureverify.in',
+      mouReference: 'MOU/HR/BGV/2024-018',
+      mouValidFrom: new Date('2024-04-01'),
+      mouValidTo: new Date('2026-03-31'),
+      servicesOffered: 'Background check, criminal record, employment verification',
+      notes: 'Approved third-party agency for provider background verification',
+    },
+  });
+
   console.log('Seed complete!');
   console.log('Demo accounts (password: Password123!):');
   console.log('  admin@credpriv.hospital — System Admin');

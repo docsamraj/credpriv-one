@@ -3,11 +3,13 @@ import {
   DoctorSubtype,
   NurseSubtype,
   TechnicianSubtype,
+  AlliedHealthSubtype,
   STAFF_SUBTYPES,
   BASE_EDUCATION_DOCS,
   DOCTOR_EXTRA_DOCS,
   NURSE_EXTRA_DOCS,
   TECHNICIAN_EXTRA_DOCS,
+  ALLIED_HEALTH_EXTRA_DOCS,
   NON_CLINICAL_DOCS,
   PrivilegeGrantLevel,
   categoryRequiresCommittee,
@@ -146,6 +148,54 @@ const JOB_DESCRIPTION_TEMPLATES: Record<string, { title: string; items: { name: 
       { name: 'Independent paediatric CPB', code: 'PEDIATRIC_CPB', defaultLevel: PrivilegeGrantLevel.NONE },
     ],
   },
+  [AlliedHealthSubtype.PHYSIOTHERAPIST]: {
+    title: 'Physiotherapist — Clinical Privileges',
+    items: [
+      { name: 'Outpatient physiotherapy assessment', code: 'PT_OPD', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Inpatient mobility & rehab', code: 'PT_IPD', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'ICU early mobilization', code: 'PT_ICU', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
+    ],
+  },
+  [AlliedHealthSubtype.PHARMACIST]: {
+    title: 'Pharmacist — Clinical Privileges',
+    items: [
+      { name: 'Dispensing & medication review', code: 'PHARM_DISPENSE', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Clinical pharmacy ward rounds', code: 'PHARM_WARD', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Chemotherapy preparation', code: 'PHARM_CHEMO', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
+    ],
+  },
+  [AlliedHealthSubtype.RADIOGRAPHER]: {
+    title: 'Radiographer — Clinical Privileges',
+    items: [
+      { name: 'General radiography', code: 'RAD_GENERAL', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'CT / MRI operation', code: 'RAD_CROSS', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
+      { name: 'Interventional radiology assist', code: 'RAD_IR', defaultLevel: PrivilegeGrantLevel.NONE },
+    ],
+  },
+  [AlliedHealthSubtype.DIETICIAN]: {
+    title: 'Dietician — Clinical Privileges',
+    items: [
+      { name: 'Nutrition assessment & care plans', code: 'DIET_ASSESS', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Therapeutic diet prescription', code: 'DIET_THERAPEUTIC', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Enteral/parenteral nutrition orders', code: 'DIET_TPN', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
+    ],
+  },
+  [AlliedHealthSubtype.RESPIRATORY_THERAPIST]: {
+    title: 'Respiratory Therapist — Clinical Privileges',
+    items: [
+      { name: 'Nebulization & airway management', code: 'RT_AIRWAY', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Ventilator management assist', code: 'RT_VENT', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
+      { name: 'Independent bronchoscopy assist', code: 'RT_BRONCH', defaultLevel: PrivilegeGrantLevel.NONE },
+    ],
+  },
+  [AlliedHealthSubtype.SPEECH_THERAPIST]: {
+    title: 'Speech Therapist — Clinical Privileges',
+    items: [
+      { name: 'Speech & language assessment', code: 'ST_ASSESS', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Swallowing (dysphagia) evaluation', code: 'ST_DYSPHAGIA', defaultLevel: PrivilegeGrantLevel.FULL },
+      { name: 'Videofluoroscopy studies', code: 'ST_VFS', defaultLevel: PrivilegeGrantLevel.UNDER_SUPERVISION },
+    ],
+  },
 };
 
 export async function seedStaffCatalog(prisma: PrismaTx) {
@@ -156,6 +206,7 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
     { code: StaffCategory.DOCTOR, name: 'Doctors', description: 'Consultants, Associate Consultants, RMOs', requiresCommitteeReview: true },
     { code: StaffCategory.NURSE, name: 'Nurses', description: 'Senior and Fresher nurses', requiresCommitteeReview: true },
     { code: StaffCategory.TECHNICIAN, name: 'Technicians', description: 'CSSD, OT, Cath Lab, Neuro, CCU, ICU, SICU, HDU, Perfusionist', requiresCommitteeReview: true },
+    { code: StaffCategory.ALLIED_HEALTH, name: 'Allied Health', description: 'Physiotherapist, Pharmacist, Radiographer, Dietician, Respiratory & Speech therapists', requiresCommitteeReview: true },
     { code: StaffCategory.ADMINISTRATIVE, name: 'Administrative', description: 'Admin officers, front desk, medical records', requiresCommitteeReview: false },
     { code: StaffCategory.HR, name: 'Human Resources', description: 'HR executives, managers, recruiters', requiresCommitteeReview: false },
     { code: StaffCategory.FINANCE, name: 'Finance & Accounts', description: 'Accountants, billing, cashiers', requiresCommitteeReview: false },
@@ -297,6 +348,7 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
     { category: StaffCategory.DOCTOR, extra: DOCTOR_EXTRA_DOCS },
     { category: StaffCategory.NURSE, extra: NURSE_EXTRA_DOCS },
     { category: StaffCategory.TECHNICIAN, extra: TECHNICIAN_EXTRA_DOCS },
+    { category: StaffCategory.ALLIED_HEALTH, extra: ALLIED_HEALTH_EXTRA_DOCS },
   ];
 
   for (const { category, extra } of docSets) {

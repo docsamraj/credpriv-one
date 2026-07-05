@@ -1,0 +1,148 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { PRODUCT_LABELS } from '@credpriv/shared';
+
+interface PendingApp {
+  id: string;
+  workflowPhase?: string;
+  status: string;
+  submittedAt?: string;
+  provider: {
+    user: { firstName: string; lastName: string; email: string };
+    profile?: {
+      department?: { name: string };
+      staffCategory?: { name: string };
+      staffSubtype?: { name: string };
+    };
+  };
+  staffCategory?: { name: string };
+  staffSubtype?: { name: string };
+}
+
+interface Department {
+  id: string;
+  name: string;
+  code?: string;
+}
+
+export default function DepartmentDashboard() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [pending, setPending] = useState<PendingApp[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [depts, apps] = await Promise.all([
+        api<Department[]>('/api/department/my-departments'),
+        api<PendingApp[]>('/api/department/pending-approvals'),
+      ]);
+      setDepartments(depts);
+      setPending(apps);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  function showMessage(type: 'success' | 'error', text: string) {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 4000);
+  }
+
+  async function handleApprove(applicationId: string) {
+    setActionLoading(true);
+    try {
+      await api(`/api/department/applications/${applicationId}/approve`, { method: 'POST' });
+      showMessage('success', 'Department approval granted — sent to credentialing staff for final clearance');
+      loadData();
+    } catch (err) {
+      showMessage('error', err instanceof Error ? err.message : 'Approval failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      {message && (
+        <div style={{
+          position: 'fixed', top: '1rem', right: '1rem', zIndex: 1000,
+          padding: '0.75rem 1.25rem', borderRadius: '8px',
+          background: message.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)',
+          color: 'white', fontSize: '0.875rem',
+        }}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="section-header">
+        <h2>Department Approvals</h2>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h4 style={{ marginBottom: '0.5rem' }}>Your departments</h4>
+        {departments.length === 0 ? (
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No department chair assignment found.</p>
+        ) : (
+          <p style={{ fontSize: '0.875rem' }}>
+            {departments.map((d) => d.name).join(' · ')}
+          </p>
+        )}
+        <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+          Non-clinical {PRODUCT_LABELS.applicantPlural.toLowerCase()} require your approval before credentialing staff can complete onboarding.
+        </p>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem' }}>Pending Department Approval ({pending.length})</h3>
+        {loading ? (
+          <p>Loading...</p>
+        ) : pending.length === 0 ? (
+          <p style={{ color: 'var(--color-text-muted)' }}>No applications awaiting your approval.</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{PRODUCT_LABELS.applicantSingular}</th>
+                <th>Department</th>
+                <th>Role</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((app) => (
+                <tr key={app.id}>
+                  <td>{app.provider.user.firstName} {app.provider.user.lastName}</td>
+                  <td>{app.provider.profile?.department?.name ?? '—'}</td>
+                  <td>{app.staffSubtype?.name ?? app.provider.profile?.staffSubtype?.name ?? '—'}</td>
+                  <td>{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '—'}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ padding: '0.375rem 0.75rem' }}
+                      onClick={() => handleApprove(app.id)}
+                      disabled={actionLoading}
+                    >
+                      Approve
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}

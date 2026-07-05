@@ -24,6 +24,7 @@ model User {
 
   roles              UserRole[]
   provider           Provider?
+  chairedDepartments Department[]        @relation("DepartmentChair")
   committeeMembers   CommitteeMember[]
   committeeDecisions CommitteeDecision[]
   auditLogs          AuditLog[]
@@ -283,10 +284,12 @@ model Department {
   name        String   @unique
   code        String?  @unique
   description String?
+  chairUserId String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  chair            User?             @relation("DepartmentChair", fields: [chairUserId], references: [id])
   specialties      Specialty[]
   providerProfiles ProviderProfile[]
   privilegeCategories PrivilegeCategory[]

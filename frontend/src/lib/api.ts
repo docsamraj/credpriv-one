@@ -139,6 +139,7 @@ export function hasRole(role: string): boolean {
 
 export function getDefaultRoute(roles: string[]): string {
   if (roles.includes('PROVIDER')) return '/dashboard/provider';
+  if (roles.includes('DEPARTMENT_CHAIR')) return '/dashboard/department';
   if (roles.includes('CREDENTIALING_STAFF')) return '/dashboard/staff';
   if (roles.includes('COMMITTEE_MEMBER') || roles.includes('MEC_MEMBER')) return '/dashboard/committee';
   if (roles.includes('SYSTEM_ADMIN') || roles.includes('ADMINISTRATOR')) return '/dashboard/admin';

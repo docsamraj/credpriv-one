@@ -136,3 +136,56 @@ export async function generateMeetingMinutesPdf(opts: {
 
   return collectPdfBuffer(doc);
 }
+
+export async function generateOnboardingPacketPdf(packet: Record<string, unknown>): Promise<Buffer> {
+  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+  const summary = packet.summary as Record<string, unknown>;
+  const documentCompliance = packet.documentCompliance as Record<string, unknown>;
+  const documents = (packet.documents as Array<{ name: string; type: string; uploadedAt: string }>) || [];
+  const credentials = (packet.credentials as Array<{ title: string; status: string }>) || [];
+  const bgv = (packet.backgroundVerifications as Array<{ verificationType: string; status: string }>) || [];
+
+  doc.fontSize(18).font('Helvetica-Bold').text('CredPriv One — HR Onboarding Packet', { align: 'center' });
+  doc.fontSize(9).font('Helvetica').text(`Generated: ${packet.generatedAt || new Date().toISOString()}`, { align: 'center' });
+  doc.moveDown();
+
+  writeHeading(doc, 'Applicant Summary');
+  writeLine(doc, 'Name', String(summary.applicantName || ''));
+  writeLine(doc, 'Email', String(summary.email || ''));
+  writeLine(doc, 'Department', String(summary.department || ''));
+  writeLine(doc, 'Role', `${summary.staffCategory || ''} — ${summary.staffSubtype || ''}`);
+  writeLine(doc, 'Application Status', String(packet.status || ''));
+  writeLine(doc, 'Workflow Phase', String(packet.workflowPhase || ''));
+
+  writeHeading(doc, 'Document Compliance');
+  writeLine(
+    doc,
+    'Status',
+    `${documentCompliance.uploadedCount}/${documentCompliance.requiredCount} uploaded${documentCompliance.complete ? ' — Complete' : ''}`
+  );
+
+  if (documents.length) {
+    writeHeading(doc, 'Uploaded Documents');
+    for (const d of documents) {
+      doc.text(`• ${d.name} (${d.type}) — ${new Date(d.uploadedAt).toLocaleDateString()}`);
+    }
+  }
+
+  if (credentials.length) {
+    writeHeading(doc, 'Credentials');
+    for (const c of credentials) {
+      doc.text(`• ${c.title} — ${c.status}`);
+    }
+  }
+
+  if (bgv.length) {
+    writeHeading(doc, 'Background Verification');
+    for (const b of bgv) {
+      doc.text(`• ${b.verificationType}: ${b.status}`);
+    }
+  }
+
+  doc.moveDown().fontSize(8).fillColor('#666').text('For HRIS / onboarding records — CredPriv One', { align: 'center' });
+
+  return collectPdfBuffer(doc);
+}

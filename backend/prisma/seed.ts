@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedStaffCatalog } from '../src/lib/seed-staff-catalog';
-import { DoctorSubtype } from '@credpriv/shared';
+import { DoctorSubtype, AlliedHealthSubtype, HrSubtype, HousekeepingSubtype } from '@credpriv/shared';
 
 const prisma = new PrismaClient();
 
@@ -37,6 +37,24 @@ async function main() {
     where: { name: 'Emergency Medicine' },
     update: {},
     create: { name: 'Emergency Medicine', code: 'EM' },
+  });
+
+  const alliedHealthDept = await prisma.department.upsert({
+    where: { name: 'Allied Health' },
+    update: {},
+    create: { name: 'Allied Health', code: 'ALLIED', description: 'Physiotherapy, Pharmacy, Radiology, Dietetics' },
+  });
+
+  const hrDept = await prisma.department.upsert({
+    where: { name: 'Human Resources' },
+    update: {},
+    create: { name: 'Human Resources', code: 'HR', description: 'HR and employee onboarding' },
+  });
+
+  const housekeepingDept = await prisma.department.upsert({
+    where: { name: 'Housekeeping' },
+    update: {},
+    create: { name: 'Housekeeping', code: 'HK', description: 'Housekeeping and sanitation services' },
   });
 
   const interventional = await prisma.specialty.upsert({
@@ -327,6 +345,118 @@ async function main() {
     });
   }
 
+  async function ensureApplicant(opts: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    departmentId: string;
+    staffCategoryId: string;
+    staffSubtypeId: string;
+    workflowPhase?: string;
+    licenseNo?: string;
+  }) {
+    const user = await prisma.user.upsert({
+      where: { email: opts.email },
+      update: {},
+      create: {
+        email: opts.email,
+        passwordHash,
+        firstName: opts.firstName,
+        lastName: opts.lastName,
+        roles: { create: { role: 'PROVIDER' } },
+      },
+    });
+
+    let prov = await prisma.provider.findUnique({ where: { userId: user.id } });
+    if (!prov) {
+      prov = await prisma.provider.create({
+        data: { userId: user.id, licenseNo: opts.licenseNo },
+      });
+    }
+
+    await prisma.providerProfile.upsert({
+      where: { providerId: prov.id },
+      update: {
+        departmentId: opts.departmentId,
+        staffCategoryId: opts.staffCategoryId,
+        staffSubtypeId: opts.staffSubtypeId,
+        employmentType: 'FULL_TIME',
+      },
+      create: {
+        providerId: prov.id,
+        departmentId: opts.departmentId,
+        staffCategoryId: opts.staffCategoryId,
+        staffSubtypeId: opts.staffSubtypeId,
+        employmentType: 'FULL_TIME',
+      },
+    });
+
+    const existing = await prisma.application.count({ where: { providerId: prov.id } });
+    if (existing === 0) {
+      await prisma.application.create({
+        data: {
+          providerId: prov.id,
+          type: 'INITIAL_APPOINTMENT',
+          status: 'SUBMITTED',
+          workflowPhase: opts.workflowPhase || 'DOCUMENT_UPLOAD',
+          currentStage: opts.workflowPhase || 'DOCUMENT_UPLOAD',
+          staffCategoryId: opts.staffCategoryId,
+          staffSubtypeId: opts.staffSubtypeId,
+          submittedAt: new Date(),
+        },
+      });
+    }
+  }
+
+  await ensureApplicant({
+    email: 'allied@credpriv.hospital',
+    firstName: 'Priya',
+    lastName: 'Menon',
+    departmentId: alliedHealthDept.id,
+    staffCategoryId: categoryIds.ALLIED_HEALTH,
+    staffSubtypeId: subtypeIds[AlliedHealthSubtype.PHYSIOTHERAPIST],
+    licenseNo: 'PT-2024-014',
+  });
+
+  await ensureApplicant({
+    email: 'hr@credpriv.hospital',
+    firstName: 'Anita',
+    lastName: 'Desai',
+    departmentId: hrDept.id,
+    staffCategoryId: categoryIds.HR,
+    staffSubtypeId: subtypeIds[HrSubtype.HR_EXECUTIVE],
+  });
+
+  await ensureApplicant({
+    email: 'housekeeping@credpriv.hospital',
+    firstName: 'Ramesh',
+    lastName: 'Kumar',
+    departmentId: housekeepingDept.id,
+    staffCategoryId: categoryIds.HOUSEKEEPING,
+    staffSubtypeId: subtypeIds[HousekeepingSubtype.HOUSEKEEPING_STAFF],
+  });
+
+  const deptChair = await prisma.user.upsert({
+    where: { email: 'deptchair@credpriv.hospital' },
+    update: {},
+    create: {
+      email: 'deptchair@credpriv.hospital',
+      passwordHash,
+      firstName: 'Vikram',
+      lastName: 'Mehta',
+      roles: { create: { role: 'DEPARTMENT_CHAIR' } },
+    },
+  });
+
+  await prisma.department.update({
+    where: { id: hrDept.id },
+    data: { chairUserId: deptChair.id },
+  });
+  await prisma.department.update({
+    where: { id: housekeepingDept.id },
+    data: { chairUserId: deptChair.id },
+  });
+
   const ruleCount = await prisma.notificationRule.count();
   if (ruleCount === 0) {
     await prisma.notificationRule.createMany({
@@ -386,7 +516,11 @@ async function main() {
   console.log('  admin@credpriv.hospital — System Admin');
   console.log('  staff@credpriv.hospital — Credentialing Staff');
   console.log('  committee@credpriv.hospital — Committee Member');
-  console.log('  provider@credpriv.hospital — Provider');
+  console.log('  provider@credpriv.hospital — Doctor (clinical / committee)');
+  console.log('  allied@credpriv.hospital — Allied Health Physiotherapist (clinical / committee)');
+  console.log('  hr@credpriv.hospital — HR Executive (non-clinical / dept approval)');
+  console.log('  housekeeping@credpriv.hospital — Housekeeping Staff (non-clinical / dept approval)');
+  console.log('  deptchair@credpriv.hospital — Department Head (HR + Housekeeping)');
 }
 
 main()

@@ -36,7 +36,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <h1>CredPriv One</h1>
-        <p className="subtitle">Hospital Provider Lifecycle Platform</p>
+        <p className="subtitle">Hospital Staff Credentialing Platform</p>
 
         {error && (
           <div style={{ background: '#f8d7da', color: '#721c24', padding: '0.75rem', borderRadius: 6, marginBottom: '1rem', fontSize: '0.875rem' }}>
@@ -76,8 +76,8 @@ export default function LoginPage() {
 
         <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
           <p>Demo accounts (password: Password123!)</p>
-          <p>provider@credpriv.hospital · staff@credpriv.hospital</p>
-          <p>committee@credpriv.hospital · admin@credpriv.hospital</p>
+          <p>provider@ · allied@ · hr@ · housekeeping@ · deptchair@</p>
+          <p>staff@ · committee@ · admin@credpriv.hospital</p>
         </div>
       </div>
     </div>

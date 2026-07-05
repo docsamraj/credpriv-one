@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, uploadFile } from '@/lib/api';
+import { api, uploadFile, downloadBlob } from '@/lib/api';
+import { PRODUCT_LABELS } from '@credpriv/shared';
 import { FileText, Upload, AlertTriangle, Clock, Check, X, Shield } from 'lucide-react';
 
 interface StaffSubtype {
@@ -101,12 +102,13 @@ const PHASE_LABELS: Record<string, string> = {
   CREDENTIALING: 'Credentialing',
   PRIVILEGE_REQUEST: 'Privilege Request',
   COMMITTEE_REVIEW: 'Committee Review',
+  DEPARTMENT_APPROVAL: 'Department Approval',
   STAFF_CLEARANCE: 'Staff Clearance',
   COMPLETE: 'Complete',
 };
 
 const CLINICAL_WORKFLOW = ['APPOINTMENT', 'DOCUMENT_UPLOAD', 'CREDENTIALING', 'PRIVILEGE_REQUEST', 'COMMITTEE_REVIEW', 'COMPLETE'];
-const NON_CLINICAL_WORKFLOW = ['APPOINTMENT', 'DOCUMENT_UPLOAD', 'CREDENTIALING', 'STAFF_CLEARANCE', 'COMPLETE'];
+const NON_CLINICAL_WORKFLOW = ['APPOINTMENT', 'DOCUMENT_UPLOAD', 'CREDENTIALING', 'DEPARTMENT_APPROVAL', 'STAFF_CLEARANCE', 'COMPLETE'];
 
 function workflowStepsFor(app?: Application | null): string[] {
   const requiresCommittee = app?.staffCategory?.requiresCommitteeReview !== false;
@@ -372,6 +374,7 @@ export default function ProviderDashboard() {
   const selectedCategory = categories.find((c) => c.id === newCategoryId);
   const activeWorkflowSteps = workflowStepsFor(activeApp);
   const showStaffClearanceWait = activeApp?.workflowPhase === 'STAFF_CLEARANCE';
+  const showDepartmentApprovalWait = activeApp?.workflowPhase === 'DEPARTMENT_APPROVAL';
 
   return (
     <div>
@@ -384,7 +387,7 @@ export default function ProviderDashboard() {
       )}
 
       <div className="section-header">
-        <h2>Provider Dashboard</h2>
+        <h2>{PRODUCT_LABELS.myDashboard}</h2>
         <button type="button" className="btn btn-primary" onClick={() => setShowNewApp(true)} disabled={actionLoading || !!activeApp}>
           <FileText size={16} />
           New Appointment
@@ -415,6 +418,15 @@ export default function ProviderDashboard() {
               )}
             </p>
           )}
+        </div>
+      )}
+
+      {showDepartmentApprovalWait && (
+        <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--color-warning, #f0ad4e)' }}>
+          <h4 style={{ marginBottom: '0.5rem' }}>Awaiting Department Head Approval</h4>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+            Your documents have been verified by credentialing staff. Your department head must approve before final clearance.
+          </p>
         </div>
       )}
 

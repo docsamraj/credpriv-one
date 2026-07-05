@@ -11,7 +11,9 @@ import {
   BarChart3,
   LogOut,
   Heart,
+  Building2,
 } from 'lucide-react';
+import { PRODUCT_LABELS } from '@credpriv/shared';
 import { getUser, clearToken } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import NotificationBell from './NotificationBell';
@@ -26,10 +28,11 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/provider', label: 'My Dashboard', icon: <LayoutDashboard size={18} />, roles: ['PROVIDER'] },
   { href: '/dashboard/staff', label: 'Staff Workflow', icon: <FileCheck size={18} />, roles: ['CREDENTIALING_STAFF'] },
-  { href: '/dashboard/committee', label: 'Committee', icon: <Gavel size={18} />, roles: ['COMMITTEE_MEMBER', 'MEC_MEMBER', 'DEPARTMENT_CHAIR'] },
+  { href: '/dashboard/department', label: 'Dept Approvals', icon: <Building2 size={18} />, roles: ['DEPARTMENT_CHAIR'] },
+  { href: '/dashboard/committee', label: 'Committee', icon: <Gavel size={18} />, roles: ['COMMITTEE_MEMBER', 'MEC_MEMBER'] },
   { href: '/dashboard/analytics', label: 'Analytics', icon: <BarChart3 size={18} />, roles: ['ADMINISTRATOR', 'QUALITY_ACCREDITATION', 'SYSTEM_ADMIN', 'CREDENTIALING_STAFF'] },
   { href: '/dashboard/admin', label: 'Admin Config', icon: <Settings size={18} />, roles: ['SYSTEM_ADMIN', 'CREDENTIALING_STAFF'] },
-  { href: '/dashboard/providers', label: 'Providers', icon: <Users size={18} />, roles: ['CREDENTIALING_STAFF', 'COMMITTEE_MEMBER', 'MEC_MEMBER', 'ADMINISTRATOR', 'SYSTEM_ADMIN'] },
+  { href: '/dashboard/providers', label: PRODUCT_LABELS.staffMemberPlural, icon: <Users size={18} />, roles: ['CREDENTIALING_STAFF', 'COMMITTEE_MEMBER', 'MEC_MEMBER', 'ADMINISTRATOR', 'SYSTEM_ADMIN'] },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -51,7 +54,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="sidebar">
         <div className="sidebar-logo">
           <h1><Heart size={20} style={{ display: 'inline', marginRight: 8 }} />CredPriv One</h1>
-          <span>Provider Lifecycle Platform</span>
+          <span>{PRODUCT_LABELS.platformTagline}</span>
         </div>
         <nav className="sidebar-nav">
           {visibleNav.map((item) => (

@@ -138,6 +138,34 @@ router.post(
 );
 
 router.post(
+  '/:id/approve-department',
+  requirePermission('department.approve'),
+  asyncHandler(async (req, res) => {
+    const app = await applicationService.approveDepartmentClearance(
+      paramId(req.params.id),
+      req.user!.userId,
+      req
+    );
+    success(res, app, 'Department approval granted');
+  })
+);
+
+router.get(
+  '/:id/onboarding.pdf',
+  requirePermission('integration.export'),
+  asyncHandler(async (req, res) => {
+    const id = paramId(req.params.id);
+    const { onboardingPacketService } = await import('../services/onboarding-packet.service');
+    const { generateOnboardingPacketPdf } = await import('../services/pdf-document.service');
+    const packet = await onboardingPacketService.build(id);
+    const pdf = await generateOnboardingPacketPdf(packet as Record<string, unknown>);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="onboarding-${id.slice(0, 8)}.pdf"`);
+    res.send(pdf);
+  })
+);
+
+router.post(
   '/:id/approve-staff-clearance',
   requirePermission('committee.mark_ready'),
   asyncHandler(async (req, res) => {

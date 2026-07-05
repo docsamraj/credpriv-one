@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, downloadBlob } from '@/lib/api';
+import { PRODUCT_LABELS } from '@credpriv/shared';
 import { Download } from 'lucide-react';
 
 interface PrivilegeRequest {
@@ -92,7 +93,7 @@ export default function CommitteeDashboard() {
           <table className="table">
             <thead>
               <tr>
-                <th>Provider</th>
+                <th>{PRODUCT_LABELS.applicantSingular}</th>
                 <th>Role</th>
                 <th>Unit</th>
                 <th>Job Description</th>
@@ -164,7 +165,7 @@ export default function CommitteeDashboard() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Provider</th>
+                  <th>{PRODUCT_LABELS.applicantSingular}</th>
                   <th>Specialty</th>
                   <th>Status</th>
                   <th>Decision</th>

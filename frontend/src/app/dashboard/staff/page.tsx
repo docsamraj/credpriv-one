@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { api, downloadBlob } from '@/lib/api';
+import { PRODUCT_LABELS } from '@credpriv/shared';
+import { Download } from 'lucide-react';
 import { X } from 'lucide-react';
 import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
 import CommitteesPanel from '@/components/admin/CommitteesPanel';
@@ -14,6 +16,7 @@ interface Queues {
   committeeReady: number;
   privilegePending?: number;
   staffClearancePending?: number;
+  departmentApprovalPending?: number;
 }
 
 interface Application {
@@ -100,8 +103,8 @@ export default function StaffDashboard() {
       showMessage(
         'success',
         requiresCommittee === false
-          ? 'Credentialing complete — awaiting staff clearance (no committee)'
-          : 'Credentialing complete — provider can request privileges'
+          ? 'Credentialing complete — awaiting department head approval'
+          : 'Credentialing complete — applicant can request privileges'
       );
     } catch (err) {
       showMessage('error', err instanceof Error ? err.message : 'Failed');
@@ -223,8 +226,12 @@ export default function StaffDashboard() {
           <div className="title">Awaiting Privilege Request</div>
         </div>
         <div className="queue-card">
+          <div className="count">{queues?.departmentApprovalPending ?? '—'}</div>
+          <div className="title">Dept Head Approval</div>
+        </div>
+        <div className="queue-card">
           <div className="count">{queues?.staffClearancePending ?? '—'}</div>
-          <div className="title">Staff Clearance (Non-Clinical)</div>
+          <div className="title">Staff Clearance</div>
         </div>
       </div>
 
@@ -236,7 +243,7 @@ export default function StaffDashboard() {
           <table className="table">
             <thead>
               <tr>
-                <th>Provider</th>
+                <th>{PRODUCT_LABELS.applicantSingular}</th>
                 <th>Role</th>
                 <th>Unit</th>
                 <th>Phase</th>
@@ -391,10 +398,11 @@ export default function StaffDashboard() {
                 disabled={actionLoading || (docCompliance !== null && !docCompliance.complete)}
               >
                 {(selectedApp.staffCategory?.requiresCommitteeReview ?? selectedApp.provider.profile?.staffCategory?.requiresCommitteeReview) === false
-                  ? 'Complete Credentialing → Staff Clearance'
+                  ? 'Complete Credentialing → Dept Approval'
                   : 'Complete Credentialing → Privilege Request'}
               </button>
             )}
+            <BackgroundVerificationPanel applicationId={selectedApp.id} />
             {selectedApp.workflowPhase === 'STAFF_CLEARANCE' && (
               <button
                 type="button"
@@ -406,7 +414,17 @@ export default function StaffDashboard() {
                 Approve Staff Clearance (No Committee)
               </button>
             )}
-            <BackgroundVerificationPanel applicationId={selectedApp.id} />
+            {['STAFF_CLEARANCE', 'COMPLETE'].includes(selectedApp.workflowPhase || '') && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ marginTop: '1rem', width: '100%' }}
+                onClick={() => downloadBlob(`/api/applications/${selectedApp.id}/onboarding.pdf`, `onboarding-${selectedApp.id.slice(0, 8)}.pdf`)}
+              >
+                <Download size={14} style={{ display: 'inline', marginRight: 4 }} />
+                Download HR Onboarding PDF
+              </button>
+            )}
             {!selectedApp.committeeReady && selectedApp.status === 'UNDER_VERIFICATION' && !selectedApp.workflowPhase && (
               <button
                 type="button"

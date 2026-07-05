@@ -23,7 +23,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   ],
   [UserRole.DEPARTMENT_CHAIR]: [
     'application.read', 'provider.read', 'privilege.read',
-    'committee.review', 'committee.decide',
+    'committee.review', 'committee.decide', 'department.approve',
   ],
   [UserRole.COMMITTEE_MEMBER]: [
     'application.read', 'provider.read', 'credential.read',

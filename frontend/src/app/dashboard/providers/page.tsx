@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { PRODUCT_LABELS } from '@credpriv/shared';
 
 interface Provider {
   id: string;
@@ -27,11 +28,11 @@ export default function ProvidersPage() {
   return (
     <div>
       <div className="section-header">
-        <h2>Providers</h2>
+        <h2>{PRODUCT_LABELS.staffMemberPlural}</h2>
         <input
           className="form-input"
           style={{ width: 300 }}
-          placeholder="Search providers..."
+          placeholder={`Search ${PRODUCT_LABELS.staffMemberPlural.toLowerCase()}...`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -52,7 +53,7 @@ export default function ProvidersPage() {
           <tbody>
             {providers.map((p) => (
               <tr key={p.id}>
-                <td>Dr. {p.user.firstName} {p.user.lastName}</td>
+                <td>{p.user.firstName} {p.user.lastName}</td>
                 <td>{p.user.email}</td>
                 <td>{p.npi ?? '—'}</td>
                 <td>{p.profile?.department?.name ?? '—'}</td>

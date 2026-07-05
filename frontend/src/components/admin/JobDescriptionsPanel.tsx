@@ -254,7 +254,7 @@ export default function JobDescriptionsPanel() {
           extractedTextPreview: preview,
         },
       });
-      showMsg('success', 'Job description published — providers will see this privilege matrix');
+      showMsg('success', 'Job description published — applicants will see this privilege matrix');
       setItems([]);
       setParseMeta(null);
       setPreview('');

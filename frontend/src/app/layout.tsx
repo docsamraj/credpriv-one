@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'CredPriv One — Provider Lifecycle Platform',
+  title: 'CredPriv One — Hospital Staff Credentialing Platform',
   description: 'Hospital-grade credentialing, privileging, and committee governance',
 };
 

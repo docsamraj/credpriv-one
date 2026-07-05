@@ -13,6 +13,7 @@ export enum StaffCategory {
   SECURITY = 'SECURITY',
   FOOD_SERVICES = 'FOOD_SERVICES',
   STORES = 'STORES',
+  ALLIED_HEALTH = 'ALLIED_HEALTH',
 }
 
 export enum DoctorSubtype {
@@ -93,10 +94,20 @@ export enum StoresSubtype {
   INVENTORY_CLERK = 'INVENTORY_CLERK',
 }
 
+export enum AlliedHealthSubtype {
+  PHYSIOTHERAPIST = 'PHYSIOTHERAPIST',
+  PHARMACIST = 'PHARMACIST',
+  RADIOGRAPHER = 'RADIOGRAPHER',
+  DIETICIAN = 'DIETICIAN',
+  RESPIRATORY_THERAPIST = 'RESPIRATORY_THERAPIST',
+  SPEECH_THERAPIST = 'SPEECH_THERAPIST',
+}
+
 export type StaffSubtypeCode =
   | DoctorSubtype
   | NurseSubtype
   | TechnicianSubtype
+  | AlliedHealthSubtype
   | AdministrativeSubtype
   | HrSubtype
   | FinanceSubtype
@@ -135,6 +146,7 @@ export enum WorkflowPhase {
   CREDENTIALING = 'CREDENTIALING',
   PRIVILEGE_REQUEST = 'PRIVILEGE_REQUEST',
   COMMITTEE_REVIEW = 'COMMITTEE_REVIEW',
+  DEPARTMENT_APPROVAL = 'DEPARTMENT_APPROVAL',
   STAFF_CLEARANCE = 'STAFF_CLEARANCE',
   COMPLETE = 'COMPLETE',
 }
@@ -189,6 +201,12 @@ export const STAFF_SUBTYPES: StaffSubtypeInfo[] = [
   { code: StoresSubtype.STORE_KEEPER, name: 'Store Keeper', category: StaffCategory.STORES },
   { code: StoresSubtype.PURCHASE_OFFICER, name: 'Purchase Officer', category: StaffCategory.STORES },
   { code: StoresSubtype.INVENTORY_CLERK, name: 'Inventory Clerk', category: StaffCategory.STORES },
+  { code: AlliedHealthSubtype.PHYSIOTHERAPIST, name: 'Physiotherapist', category: StaffCategory.ALLIED_HEALTH },
+  { code: AlliedHealthSubtype.PHARMACIST, name: 'Pharmacist', category: StaffCategory.ALLIED_HEALTH },
+  { code: AlliedHealthSubtype.RADIOGRAPHER, name: 'Radiographer', category: StaffCategory.ALLIED_HEALTH },
+  { code: AlliedHealthSubtype.DIETICIAN, name: 'Dietician', category: StaffCategory.ALLIED_HEALTH },
+  { code: AlliedHealthSubtype.RESPIRATORY_THERAPIST, name: 'Respiratory Therapist', category: StaffCategory.ALLIED_HEALTH },
+  { code: AlliedHealthSubtype.SPEECH_THERAPIST, name: 'Speech Therapist', category: StaffCategory.ALLIED_HEALTH },
 ];
 
 /** Clinical roles that require privilege matrix + credentialing committee review */
@@ -196,6 +214,7 @@ export const CLINICAL_STAFF_CATEGORIES: StaffCategory[] = [
   StaffCategory.DOCTOR,
   StaffCategory.NURSE,
   StaffCategory.TECHNICIAN,
+  StaffCategory.ALLIED_HEALTH,
 ];
 
 export function categoryRequiresCommittee(code: StaffCategory): boolean {
@@ -215,6 +234,7 @@ export const CATEGORY_LABELS: Record<StaffCategory, string> = {
   [StaffCategory.SECURITY]: 'Security',
   [StaffCategory.FOOD_SERVICES]: 'Food & Nutrition Services',
   [StaffCategory.STORES]: 'Stores & Purchase',
+  [StaffCategory.ALLIED_HEALTH]: 'Allied Health',
 };
 
 export const PRIVILEGE_LEVEL_LABELS: Record<PrivilegeGrantLevel, string> = {
@@ -229,6 +249,7 @@ export const WORKFLOW_PHASE_LABELS: Record<WorkflowPhase, string> = {
   [WorkflowPhase.CREDENTIALING]: 'Credentialing',
   [WorkflowPhase.PRIVILEGE_REQUEST]: 'Privilege Request',
   [WorkflowPhase.COMMITTEE_REVIEW]: 'Committee Review',
+  [WorkflowPhase.DEPARTMENT_APPROVAL]: 'Department Approval',
   [WorkflowPhase.STAFF_CLEARANCE]: 'Staff Clearance',
   [WorkflowPhase.COMPLETE]: 'Complete',
 };
@@ -259,6 +280,23 @@ export const TECHNICIAN_EXTRA_DOCS = [
   { type: EducationDocumentType.TECHNICAL_CERTIFICATE, name: 'Technical Certification', sortOrder: 4 },
   { type: EducationDocumentType.EXPERIENCE_CERTIFICATE, name: 'Experience Certificate', sortOrder: 5 },
 ];
+
+export const ALLIED_HEALTH_EXTRA_DOCS = [
+  { type: EducationDocumentType.UNDERGRADUATE, name: 'Professional Degree/Diploma', sortOrder: 3 },
+  { type: EducationDocumentType.TECHNICAL_CERTIFICATE, name: 'Council / Board Registration', sortOrder: 4 },
+  { type: EducationDocumentType.EXPERIENCE_CERTIFICATE, name: 'Experience Certificate', sortOrder: 5 },
+];
+
+/** User-facing product labels (internal model remains Provider) */
+export const PRODUCT_LABELS = {
+  platformName: 'CredPriv One',
+  platformTagline: 'Hospital Staff Credentialing Platform',
+  applicantSingular: 'Applicant',
+  applicantPlural: 'Applicants',
+  staffMemberSingular: 'Staff Member',
+  staffMemberPlural: 'Staff Members',
+  myDashboard: 'My Dashboard',
+};
 
 /** Required documents for non-clinical hospital staff (no committee / privilege matrix) */
 export const NON_CLINICAL_DOCS = [

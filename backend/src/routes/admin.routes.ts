@@ -3,7 +3,8 @@ import prisma from '../lib/prisma';
 import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { asyncHandler, success } from '../utils/response';
-import { UserRole } from '@credpriv/shared';
+import { paramId } from '../utils/params';
+import { committeeMemberService } from '../services/committee-member.service';
 
 const router = Router();
 
@@ -89,6 +90,64 @@ router.get(
     ]);
 
     success(res, { items, total, page, pageSize });
+  })
+);
+
+router.get(
+  '/committees',
+  requirePermission('committee.manage'),
+  asyncHandler(async (_req, res) => {
+    const committees = await committeeMemberService.listCommitteesWithRoster();
+    success(res, committees);
+  })
+);
+
+router.get(
+  '/users/search',
+  requirePermission('committee.manage'),
+  asyncHandler(async (req, res) => {
+    const users = await committeeMemberService.searchUsers(req.query.q as string | undefined);
+    success(res, users);
+  })
+);
+
+router.post(
+  '/committees/:committeeId/members',
+  requirePermission('committee.manage'),
+  asyncHandler(async (req, res) => {
+    const member = await committeeMemberService.addMember(
+      paramId(req.params.committeeId),
+      req.body,
+      req
+    );
+    success(res, member, 'Committee member added', 201);
+  })
+);
+
+router.put(
+  '/committees/:committeeId/members/:memberId',
+  requirePermission('committee.manage'),
+  asyncHandler(async (req, res) => {
+    const member = await committeeMemberService.updateMember(
+      paramId(req.params.committeeId),
+      paramId(req.params.memberId),
+      req.body,
+      req
+    );
+    success(res, member, 'Committee member updated');
+  })
+);
+
+router.delete(
+  '/committees/:committeeId/members/:memberId',
+  requirePermission('committee.manage'),
+  asyncHandler(async (req, res) => {
+    await committeeMemberService.removeMember(
+      paramId(req.params.committeeId),
+      paramId(req.params.memberId),
+      req
+    );
+    success(res, null, 'Committee member removed');
   })
 );
 

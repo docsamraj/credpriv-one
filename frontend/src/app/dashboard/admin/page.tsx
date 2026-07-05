@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
+import CommitteesPanel from '@/components/admin/CommitteesPanel';
 
 interface Department {
   id: string;
@@ -41,6 +42,7 @@ export default function AdminDashboard() {
   }, []);
 
   const tabs = [
+    { id: 'committees', label: 'Committees' },
     { id: 'job-descriptions', label: 'Job Descriptions' },
     { id: 'departments', label: 'Departments' },
     { id: 'specialties', label: 'Specialties' },
@@ -67,6 +69,8 @@ export default function AdminDashboard() {
           </button>
         ))}
       </div>
+
+      {activeTab === 'committees' && <CommitteesPanel />}
 
       {activeTab === 'job-descriptions' && <JobDescriptionsPanel />}
 

@@ -170,8 +170,23 @@ async function main() {
     where: {
       committeeId_userId: { committeeId: credCommittee.id, userId: committeeMember.id },
     },
-    update: { role: 'CHAIR', isActive: true },
-    create: { committeeId: credCommittee.id, userId: committeeMember.id, role: 'CHAIR' },
+    update: {
+      role: 'CHAIR',
+      designation: 'Head of Credentialing',
+      degrees: 'MBBS, MD',
+      engagementStart: new Date('2024-01-01'),
+      engagementEnd: new Date('2026-12-31'),
+      isActive: true,
+    },
+    create: {
+      committeeId: credCommittee.id,
+      userId: committeeMember.id,
+      role: 'CHAIR',
+      designation: 'Head of Credentialing',
+      degrees: 'MBBS, MD',
+      engagementStart: new Date('2024-01-01'),
+      engagementEnd: new Date('2026-12-31'),
+    },
   });
 
   const providerUser = await prisma.user.upsert({

@@ -331,18 +331,26 @@ model Committee {
 }
 
 model CommitteeMember {
-  id          String    @id @default(cuid())
-  committeeId String
-  userId      String
-  role        String?   // CHAIR, MEMBER, SECRETARY
-  joinedAt    DateTime  @default(now())
-  leftAt      DateTime?
-  isActive    Boolean   @default(true)
+  id              String    @id @default(cuid())
+  committeeId     String
+  userId          String?
+  memberName      String?
+  degrees         String?
+  designation     String?
+  role            String    @default("MEMBER") // CHAIR, CO_CHAIR, MEMBER, SECRETARY, SPECIAL_INVITEE
+  engagementStart DateTime?
+  engagementEnd   DateTime?
+  joinedAt        DateTime  @default(now())
+  leftAt          DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   committee Committee @relation(fields: [committeeId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([committeeId, userId])
+  @@index([committeeId])
   @@map("committee_members")
 }
 

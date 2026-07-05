@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { X } from 'lucide-react';
 import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
+import CommitteesPanel from '@/components/admin/CommitteesPanel';
 
 interface Queues {
   newApplications: number;
@@ -34,7 +35,7 @@ interface Application {
 }
 
 export default function StaffDashboard() {
-  const [activeTab, setActiveTab] = useState<'workflow' | 'job-descriptions'>('workflow');
+  const [activeTab, setActiveTab] = useState<'workflow' | 'job-descriptions' | 'committees'>('workflow');
   const [queues, setQueues] = useState<Queues | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +143,16 @@ export default function StaffDashboard() {
         >
           Job Descriptions
         </button>
+        <button
+          type="button"
+          className={`btn ${activeTab === 'committees' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('committees')}
+        >
+          Committees
+        </button>
       </div>
+
+      {activeTab === 'committees' && <CommitteesPanel />}
 
       {activeTab === 'job-descriptions' && <JobDescriptionsPanel />}
 

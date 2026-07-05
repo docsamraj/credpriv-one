@@ -75,6 +75,22 @@ export enum CommitteeType {
   DEPARTMENT = 'DEPARTMENT',
 }
 
+export enum CommitteeMemberRole {
+  CHAIR = 'CHAIR',
+  CO_CHAIR = 'CO_CHAIR',
+  MEMBER = 'MEMBER',
+  SECRETARY = 'SECRETARY',
+  SPECIAL_INVITEE = 'SPECIAL_INVITEE',
+}
+
+export const COMMITTEE_MEMBER_ROLE_LABELS: Record<CommitteeMemberRole, string> = {
+  [CommitteeMemberRole.CHAIR]: 'Chair',
+  [CommitteeMemberRole.CO_CHAIR]: 'Co-Chair',
+  [CommitteeMemberRole.MEMBER]: 'Member',
+  [CommitteeMemberRole.SECRETARY]: 'Secretary',
+  [CommitteeMemberRole.SPECIAL_INVITEE]: 'Special Invitee',
+};
+
 export enum DecisionType {
   APPROVE = 'APPROVE',
   DENY = 'DENY',

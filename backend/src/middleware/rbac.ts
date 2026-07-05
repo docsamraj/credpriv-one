@@ -22,16 +22,16 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'integration.read', 'integration.export', 'integration.admin',
   ],
   [UserRole.DEPARTMENT_CHAIR]: [
-    'application.read', 'provider.read', 'privilege.read',
+    'application.read', 'provider.read', 'privilege.read', 'document.read',
     'committee.review', 'committee.decide', 'department.approve',
   ],
   [UserRole.COMMITTEE_MEMBER]: [
-    'application.read', 'provider.read', 'credential.read',
+    'application.read', 'provider.read', 'credential.read', 'document.read',
     'committee.review', 'committee.decide', 'committee.meeting.read',
     'job_description.manage',
   ],
   [UserRole.MEC_MEMBER]: [
-    'application.read', 'provider.read', 'credential.read', 'privilege.read',
+    'application.read', 'provider.read', 'credential.read', 'privilege.read', 'document.read',
     'committee.review', 'committee.decide', 'committee.meeting.read',
   ],
   [UserRole.ADMINISTRATOR]: [

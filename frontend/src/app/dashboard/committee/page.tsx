@@ -457,7 +457,7 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
       thirdParty?: { name: string; address?: string; mouReference?: string } | null;
       findings?: string;
     }>;
-    documentChecklist: Array<{ type: string; name: string; uploaded: boolean; isRequired: boolean }>;
+    documentChecklist: Array<{ type: string; name: string; uploaded: boolean; isRequired: boolean; fileCount?: number; uploadedFiles?: Array<{ id: string; name: string; uploadedAt: string }> }>;
     jobDescription?: {
       title: string;
       clinicalUnit?: string;
@@ -617,25 +617,35 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
 
             {activeSection === 'documents' && (
               <div>
-                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Required document checklist</h4>
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Document checklist &amp; uploads</h4>
                 <table className="table" style={{ marginBottom: '1.5rem' }}>
-                  <thead><tr><th>Required document</th><th>Type</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Suggested document</th><th>Status</th><th>Files on record</th></tr></thead>
                   <tbody>
                     {(packet.documentChecklist || []).map((item, i) => (
                       <tr key={i}>
                         <td>{item.name}</td>
-                        <td>{item.type}</td>
                         <td>
-                          <span className={`badge ${item.uploaded ? 'badge-success' : 'badge-danger'}`}>
-                            {item.uploaded ? 'Uploaded' : 'Missing'}
+                          <span className={`badge ${item.uploaded ? 'badge-success' : 'badge-warning'}`}>
+                            {item.uploaded ? `Uploaded${item.fileCount && item.fileCount > 1 ? ` (${item.fileCount})` : ''}` : 'Not uploaded'}
                           </span>
+                        </td>
+                        <td style={{ fontSize: '0.8rem' }}>
+                          {item.uploadedFiles && item.uploadedFiles.length > 0 ? (
+                            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                              {item.uploadedFiles.map((f) => (
+                                <li key={f.id}>{f.name} — {new Date(f.uploadedAt).toLocaleDateString()}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span style={{ color: 'var(--color-text-muted)' }}>— ask applicant if needed</span>
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
 
-                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>Uploaded files</h4>
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>All uploaded files</h4>
                 <p style={{ fontSize: '0.875rem', marginBottom: '0.75rem' }}>
                   {packet.documentCompliance.uploadedCount}/{packet.documentCompliance.requiredCount} required documents on file
                 </p>

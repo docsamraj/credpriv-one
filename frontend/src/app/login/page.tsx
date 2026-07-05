@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setToken, setUser, getDefaultRoute } from '@/lib/api';
+import DemoAccounts from './demo-accounts';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -74,11 +75,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
-          <p>Demo accounts (password: Password123!)</p>
-          <p>provider@ · allied@ · hr@ · housekeeping@ · deptchair@</p>
-          <p>staff@ · committee@ · admin@credpriv.hospital</p>
-        </div>
+        <DemoAccounts />
       </div>
     </div>
   );

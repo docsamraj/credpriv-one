@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma';
 import { AppError } from '../utils/response';
 import type { DocumentComplianceReport } from '@credpriv/shared';
+import { allowsMultipleDocumentUploads } from '@credpriv/shared';
 
 /** When false (default), document checklist is advisory — upload what you have. */
 export function isDocumentGateEnforced(): boolean {
@@ -23,6 +24,7 @@ export class DocumentComplianceService {
         uploadedCount: 0,
         missing: [],
         items: [],
+        allDocuments: [],
       };
     }
 
@@ -36,18 +38,28 @@ export class DocumentComplianceService {
       orderBy: { sortOrder: 'asc' },
     });
 
-    const uploadedDocs = await prisma.document.findMany({
+    const allUploaded = await prisma.document.findMany({
       where: { providerId: app.providerId },
-      select: { type: true },
+      orderBy: { uploadedAt: 'desc' },
+      select: { id: true, name: true, type: true, uploadedAt: true },
     });
-    const uploadedTypes = new Set(uploadedDocs.map((d) => d.type));
 
-    const items = checklist.map((doc) => ({
-      type: doc.type,
-      name: doc.name,
-      isRequired: doc.isRequired,
-      uploaded: uploadedTypes.has(doc.type),
-    }));
+    const items = checklist.map((doc) => {
+      const files = allUploaded.filter((d) => d.type === doc.type);
+      return {
+        type: doc.type,
+        name: doc.name,
+        isRequired: doc.isRequired,
+        uploaded: files.length > 0,
+        fileCount: files.length,
+        allowsMultiple: allowsMultipleDocumentUploads(doc.type),
+        uploadedFiles: files.map((f) => ({
+          id: f.id,
+          name: f.name,
+          uploadedAt: f.uploadedAt.toISOString(),
+        })),
+      };
+    });
 
     const gateEnforced = isDocumentGateEnforced();
     const missing = items.filter((i) => i.isRequired && !i.uploaded);
@@ -60,6 +72,12 @@ export class DocumentComplianceService {
       uploadedCount: items.filter((i) => i.uploaded).length,
       missing: gateEnforced ? missing : items.filter((i) => !i.uploaded),
       items,
+      allDocuments: allUploaded.map((d) => ({
+        id: d.id,
+        name: d.name,
+        type: d.type,
+        uploadedAt: d.uploadedAt.toISOString(),
+      })),
     };
   }
 

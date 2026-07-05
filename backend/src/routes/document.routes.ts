@@ -7,6 +7,7 @@ import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { createAuditLog } from '../middleware/audit';
 import { asyncHandler, success, AppError } from '../utils/response';
+import { paramId } from '../utils/params';
 
 const router = Router();
 
@@ -35,6 +36,20 @@ async function getProviderIdForUser(userId: string): Promise<string> {
   if (!provider) throw new AppError(404, 'Provider profile not found');
   return provider.id;
 }
+
+router.get(
+  '/by-provider/:providerId',
+  requirePermission('document.read'),
+  asyncHandler(async (req, res) => {
+    const providerId = paramId(req.params.providerId);
+    const documents = await prisma.document.findMany({
+      where: { providerId },
+      orderBy: { uploadedAt: 'desc' },
+      select: { id: true, name: true, type: true, uploadedAt: true, mimeType: true, fileSize: true },
+    });
+    success(res, documents);
+  })
+);
 
 router.get(
   '/my',

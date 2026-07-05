@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, Fragment } from 'react';
 import { api } from '@/lib/api';
 import { PRODUCT_LABELS } from '@credpriv/shared';
+import ApplicationDocumentInventory from '@/components/shared/ApplicationDocumentInventory';
 
 interface PendingApp {
   id: string;
@@ -32,6 +33,7 @@ export default function DepartmentDashboard() {
   const [pending, setPending] = useState<PendingApp[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -121,12 +123,21 @@ export default function DepartmentDashboard() {
             </thead>
             <tbody>
               {pending.map((app) => (
-                <tr key={app.id}>
+                <Fragment key={app.id}>
+                <tr>
                   <td>{app.provider.user.firstName} {app.provider.user.lastName}</td>
                   <td>{app.provider.profile?.department?.name ?? '—'}</td>
                   <td>{app.staffSubtype?.name ?? app.provider.profile?.staffSubtype?.name ?? '—'}</td>
                   <td>{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '—'}</td>
                   <td>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.375rem 0.75rem', marginRight: '0.5rem' }}
+                      onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)}
+                    >
+                      {expandedAppId === app.id ? 'Hide docs' : 'View docs'}
+                    </button>
                     <button
                       type="button"
                       className="btn btn-primary"
@@ -138,6 +149,14 @@ export default function DepartmentDashboard() {
                     </button>
                   </td>
                 </tr>
+                {expandedAppId === app.id && (
+                  <tr key={`${app.id}-docs`}>
+                    <td colSpan={5} style={{ background: 'var(--color-bg)' }}>
+                      <ApplicationDocumentInventory applicationId={app.id} compact />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

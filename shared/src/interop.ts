@@ -53,6 +53,9 @@ export interface DocumentComplianceItem {
   name: string;
   isRequired: boolean;
   uploaded: boolean;
+  fileCount?: number;
+  allowsMultiple?: boolean;
+  uploadedFiles?: Array<{ id: string; name: string; uploadedAt: string }>;
 }
 
 export interface DocumentComplianceReport {
@@ -64,4 +67,6 @@ export interface DocumentComplianceReport {
   uploadedCount: number;
   missing: DocumentComplianceItem[];
   items: DocumentComplianceItem[];
+  /** All files on record for this applicant */
+  allDocuments?: Array<{ id: string; name: string; type: string; uploadedAt: string }>;
 }

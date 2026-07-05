@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, uploadFile, downloadBlob } from '@/lib/api';
-import { PRODUCT_LABELS } from '@credpriv/shared';
+import { PRODUCT_LABELS, allowsMultipleDocumentUploads } from '@credpriv/shared';
 import { FileText, Upload, AlertTriangle, Clock, Check, X, Shield } from 'lucide-react';
 
 interface StaffSubtype {
@@ -347,11 +347,14 @@ export default function ProviderDashboard() {
 
     setActionLoading(true);
     try {
+      const multi = allowsMultipleDocumentUploads(pendingUpload.type);
       const doc = await uploadFile<Document>('/api/documents/upload', file, {
         type: pendingUpload.type,
-        name: pendingUpload.name,
+        name: multi ? `${pendingUpload.name} — ${file.name}` : pendingUpload.name,
       });
-      setDocuments((prev) => [doc, ...prev.filter((d) => d.type !== pendingUpload.type)]);
+      setDocuments((prev) =>
+        multi ? [doc, ...prev] : [doc, ...prev.filter((d) => d.type !== pendingUpload.type)]
+      );
       showMessage('success', `${pendingUpload.name} uploaded`);
       const app = selectedApp || activeApp;
       if (app?.id) {
@@ -368,6 +371,7 @@ export default function ProviderDashboard() {
   }
 
   const uploadedTypes = new Set(documents.map((d) => d.type));
+  const docsByType = (type: string) => documents.filter((d) => d.type === type);
   const docApp = selectedApp || activeApp;
   const showDocUpload = docApp && ['DOCUMENT_UPLOAD', 'CREDENTIALING'].includes(docApp.workflowPhase || '');
   const privilegeApp = selectedApp?.workflowPhase === 'PRIVILEGE_REQUEST' ? selectedApp : activeApp?.workflowPhase === 'PRIVILEGE_REQUEST' ? selectedApp : null;
@@ -494,16 +498,28 @@ export default function ProviderDashboard() {
           )}
           <div style={{ marginTop: '1rem' }}>
             {(requiredDocs.length > 0 ? requiredDocs : []).map((doc) => {
-              const uploaded = uploadedTypes.has(doc.type);
+              const files = docsByType(doc.type);
+              const uploaded = files.length > 0;
+              const multi = allowsMultipleDocumentUploads(doc.type);
               return (
-                <div key={doc.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {uploaded && <Check size={16} style={{ color: 'var(--color-success)' }} />}
-                    {doc.name}
-                  </span>
-                  <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => triggerUpload(doc.type, doc.name)} disabled={actionLoading || !showDocUpload}>
-                    <Upload size={14} /> {uploaded ? 'Replace' : 'Upload'}
-                  </button>
+                <div key={doc.type} style={{ padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {uploaded && <Check size={16} style={{ color: 'var(--color-success)' }} />}
+                      {doc.name}
+                      {multi && <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>multiple allowed</span>}
+                    </span>
+                    <button type="button" className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} onClick={() => triggerUpload(doc.type, doc.name)} disabled={actionLoading || !showDocUpload}>
+                      <Upload size={14} /> {multi && uploaded ? 'Add another' : uploaded ? 'Replace' : 'Upload'}
+                    </button>
+                  </div>
+                  {files.length > 0 && (
+                    <ul style={{ margin: '0.5rem 0 0 1.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      {files.map((f) => (
+                        <li key={f.id}>{f.name} — {new Date(f.uploadedAt).toLocaleDateString()}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               );
             })}

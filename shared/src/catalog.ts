@@ -131,7 +131,20 @@ export enum EducationDocumentType {
   EXPERIENCE_CERTIFICATE = 'EXPERIENCE_CERTIFICATE',
   POLICE_VERIFICATION = 'POLICE_VERIFICATION',
   APPOINTMENT_LETTER = 'APPOINTMENT_LETTER',
+  PROFESSIONAL_TRAINING = 'PROFESSIONAL_TRAINING',
   OTHER = 'OTHER',
+}
+
+/** Document types that allow multiple file uploads (e.g. several experience letters) */
+export const MULTI_UPLOAD_DOCUMENT_TYPES: EducationDocumentType[] = [
+  EducationDocumentType.EXPERIENCE_CERTIFICATE,
+  EducationDocumentType.PROFESSIONAL_TRAINING,
+  EducationDocumentType.TECHNICAL_CERTIFICATE,
+  EducationDocumentType.OTHER,
+];
+
+export function allowsMultipleDocumentUploads(type: string): boolean {
+  return MULTI_UPLOAD_DOCUMENT_TYPES.includes(type as EducationDocumentType);
 }
 
 export enum PrivilegeGrantLevel {
@@ -267,24 +280,28 @@ export const DOCTOR_EXTRA_DOCS = [
   { type: EducationDocumentType.SUPERSPECIALITY, name: 'Superspeciality (DM/MCh)', sortOrder: 5 },
   { type: EducationDocumentType.MEDICAL_LICENSE, name: 'Updated Medical License', sortOrder: 6 },
   { type: EducationDocumentType.EXPERIENCE_CERTIFICATE, name: 'Experience Certificate', sortOrder: 7 },
+  { type: EducationDocumentType.PROFESSIONAL_TRAINING, name: 'Professional Training / CME', sortOrder: 8 },
 ];
 
 export const NURSE_EXTRA_DOCS = [
   { type: EducationDocumentType.UNDERGRADUATE, name: 'Nursing Degree/Diploma (GNM/BSc)', sortOrder: 3 },
   { type: EducationDocumentType.NURSING_LICENSE, name: 'Nursing Council Registration', sortOrder: 4 },
   { type: EducationDocumentType.EXPERIENCE_CERTIFICATE, name: 'Experience Certificate', sortOrder: 5 },
+  { type: EducationDocumentType.PROFESSIONAL_TRAINING, name: 'Professional Training / CME', sortOrder: 6 },
 ];
 
 export const TECHNICIAN_EXTRA_DOCS = [
   { type: EducationDocumentType.UNDERGRADUATE, name: 'Diploma/Degree Certificate', sortOrder: 3 },
   { type: EducationDocumentType.TECHNICAL_CERTIFICATE, name: 'Technical Certification', sortOrder: 4 },
   { type: EducationDocumentType.EXPERIENCE_CERTIFICATE, name: 'Experience Certificate', sortOrder: 5 },
+  { type: EducationDocumentType.PROFESSIONAL_TRAINING, name: 'Professional Training', sortOrder: 6 },
 ];
 
 export const ALLIED_HEALTH_EXTRA_DOCS = [
   { type: EducationDocumentType.UNDERGRADUATE, name: 'Professional Degree/Diploma', sortOrder: 3 },
   { type: EducationDocumentType.TECHNICAL_CERTIFICATE, name: 'Council / Board Registration', sortOrder: 4 },
   { type: EducationDocumentType.EXPERIENCE_CERTIFICATE, name: 'Experience Certificate', sortOrder: 5 },
+  { type: EducationDocumentType.PROFESSIONAL_TRAINING, name: 'Professional Training / CME', sortOrder: 6 },
 ];
 
 /** User-facing product labels (internal model remains Provider) */
@@ -307,4 +324,5 @@ export const NON_CLINICAL_DOCS = [
   { type: EducationDocumentType.EXPERIENCE_CERTIFICATE, name: 'Experience Certificate', sortOrder: 5 },
   { type: EducationDocumentType.POLICE_VERIFICATION, name: 'Police Verification / Character Certificate', sortOrder: 6 },
   { type: EducationDocumentType.APPOINTMENT_LETTER, name: 'Previous Employment / Appointment Letter', sortOrder: 7 },
+  { type: EducationDocumentType.PROFESSIONAL_TRAINING, name: 'Professional Training', sortOrder: 8 },
 ];

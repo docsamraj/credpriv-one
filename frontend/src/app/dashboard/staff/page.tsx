@@ -8,6 +8,7 @@ import { X } from 'lucide-react';
 import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
 import CommitteesPanel from '@/components/admin/CommitteesPanel';
 import BackgroundVerificationPanel from '@/components/staff/BackgroundVerificationPanel';
+import ApplicationDocumentInventory from '@/components/shared/ApplicationDocumentInventory';
 
 interface Queues {
   newApplications: number;
@@ -416,6 +417,7 @@ export default function StaffDashboard() {
                   : 'Complete Credentialing → Privilege Request'}
               </button>
             )}
+            <ApplicationDocumentInventory applicationId={selectedApp.id} />
             <BackgroundVerificationPanel applicationId={selectedApp.id} />
             {selectedApp.workflowPhase === 'STAFF_CLEARANCE' && (
               <button

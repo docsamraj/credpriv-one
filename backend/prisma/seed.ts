@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedStaffCatalog } from '../src/lib/seed-staff-catalog';
-import { DoctorSubtype, AlliedHealthSubtype, HrSubtype, HousekeepingSubtype } from '@credpriv/shared';
+import { DoctorSubtype, AlliedHealthSubtype, HrSubtype, HousekeepingSubtype, NurseSubtype, TechnicianSubtype } from '@credpriv/shared';
 
 const prisma = new PrismaClient();
 
@@ -354,6 +354,7 @@ async function main() {
     staffSubtypeId: string;
     workflowPhase?: string;
     licenseNo?: string;
+    clinicalUnit?: string;
   }) {
     const user = await prisma.user.upsert({
       where: { email: opts.email },
@@ -402,11 +403,33 @@ async function main() {
           currentStage: opts.workflowPhase || 'DOCUMENT_UPLOAD',
           staffCategoryId: opts.staffCategoryId,
           staffSubtypeId: opts.staffSubtypeId,
+          clinicalUnit: opts.clinicalUnit || '',
           submittedAt: new Date(),
         },
       });
     }
   }
+
+  await ensureApplicant({
+    email: 'nurse@credpriv.hospital',
+    firstName: 'Sunita',
+    lastName: 'Patel',
+    departmentId: cardiology.id,
+    staffCategoryId: categoryIds.NURSE,
+    staffSubtypeId: subtypeIds[NurseSubtype.SENIOR_NURSE],
+    licenseNo: 'NUR-2024-088',
+  });
+
+  await ensureApplicant({
+    email: 'tech@credpriv.hospital',
+    firstName: 'Arun',
+    lastName: 'Verma',
+    departmentId: cardiology.id,
+    staffCategoryId: categoryIds.TECHNICIAN,
+    staffSubtypeId: subtypeIds[TechnicianSubtype.OT],
+    licenseNo: 'OT-TECH-021',
+    clinicalUnit: 'Surgery OT',
+  });
 
   await ensureApplicant({
     email: 'allied@credpriv.hospital',
@@ -517,6 +540,8 @@ async function main() {
   console.log('  staff@credpriv.hospital — Credentialing Staff');
   console.log('  committee@credpriv.hospital — Committee Member');
   console.log('  provider@credpriv.hospital — Doctor (clinical / committee)');
+  console.log('  nurse@credpriv.hospital — Senior Nurse (clinical / committee)');
+  console.log('  tech@credpriv.hospital — OT Technician (clinical / committee)');
   console.log('  allied@credpriv.hospital — Allied Health Physiotherapist (clinical / committee)');
   console.log('  hr@credpriv.hospital — HR Executive (non-clinical / dept approval)');
   console.log('  housekeeping@credpriv.hospital — Housekeeping Staff (non-clinical / dept approval)');

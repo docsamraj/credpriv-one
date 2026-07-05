@@ -13,6 +13,7 @@ interface Queues {
   pendingPsv: number;
   committeeReady: number;
   privilegePending?: number;
+  staffClearancePending?: number;
 }
 
 interface Application {
@@ -29,10 +30,11 @@ interface Application {
     profile?: {
       department?: { name: string };
       specialty?: { name: string };
-      staffCategory?: { name: string };
+      staffCategory?: { name: string; requiresCommitteeReview?: boolean };
       staffSubtype?: { name: string };
     };
   };
+  staffCategory?: { name: string; requiresCommitteeReview?: boolean };
   staffSubtype?: { name: string };
 }
 
@@ -87,7 +89,7 @@ export default function StaffDashboard() {
     setTimeout(() => setMessage(null), 4000);
   }
 
-  async function handleCompleteCredentialing(id: string) {
+  async function handleCompleteCredentialing(id: string, requiresCommittee?: boolean) {
     setActionLoading(true);
     try {
       const updated = await api<Application>(`/api/applications/${id}/complete-credentialing`, { method: 'POST' });
@@ -95,9 +97,30 @@ export default function StaffDashboard() {
       if (selectedApp?.id === id) setSelectedApp(updated);
       const q = await api<Queues>('/api/applications/queues');
       setQueues(q);
-      showMessage('success', 'Credentialing complete — provider can request privileges');
+      showMessage(
+        'success',
+        requiresCommittee === false
+          ? 'Credentialing complete — awaiting staff clearance (no committee)'
+          : 'Credentialing complete — provider can request privileges'
+      );
     } catch (err) {
       showMessage('error', err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleApproveClearance(id: string) {
+    setActionLoading(true);
+    try {
+      const updated = await api<Application>(`/api/applications/${id}/approve-staff-clearance`, { method: 'POST' });
+      setApplications((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      if (selectedApp?.id === id) setSelectedApp(updated);
+      const q = await api<Queues>('/api/applications/queues');
+      setQueues(q);
+      showMessage('success', 'Staff clearance approved — onboarding complete');
+    } catch (err) {
+      showMessage('error', err instanceof Error ? err.message : 'Failed to approve');
     } finally {
       setActionLoading(false);
     }
@@ -199,6 +222,10 @@ export default function StaffDashboard() {
           <div className="count">{queues?.privilegePending ?? '—'}</div>
           <div className="title">Awaiting Privilege Request</div>
         </div>
+        <div className="queue-card">
+          <div className="count">{queues?.staffClearancePending ?? '—'}</div>
+          <div className="title">Staff Clearance (Non-Clinical)</div>
+        </div>
       </div>
 
       <div className="card">
@@ -264,6 +291,17 @@ export default function StaffDashboard() {
                         Mark Ready
                       </button>
                     )}
+                    {app.workflowPhase === 'STAFF_CLEARANCE' && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '0.375rem 0.75rem', marginLeft: '0.5rem' }}
+                        onClick={() => handleApproveClearance(app.id)}
+                        disabled={actionLoading}
+                      >
+                        Approve Clearance
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -301,8 +339,8 @@ export default function StaffDashboard() {
               </button>
             </div>
             <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              <dt style={{ color: 'var(--color-text-muted)' }}>Provider</dt>
-              <dd>Dr. {selectedApp.provider.user.firstName} {selectedApp.provider.user.lastName}</dd>
+              <dt style={{ color: 'var(--color-text-muted)' }}>Applicant</dt>
+              <dd>{selectedApp.provider.user.firstName} {selectedApp.provider.user.lastName}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Role</dt>
               <dd>{selectedApp.staffSubtype?.name ?? selectedApp.provider.profile?.staffSubtype?.name ?? '—'}</dd>
               {selectedApp.clinicalUnit && (
@@ -346,10 +384,26 @@ export default function StaffDashboard() {
                 type="button"
                 className="btn btn-primary"
                 style={{ marginTop: '1.5rem', width: '100%' }}
-                onClick={() => handleCompleteCredentialing(selectedApp.id)}
+                onClick={() => handleCompleteCredentialing(
+                  selectedApp.id,
+                  selectedApp.staffCategory?.requiresCommitteeReview ?? selectedApp.provider.profile?.staffCategory?.requiresCommitteeReview
+                )}
                 disabled={actionLoading || (docCompliance !== null && !docCompliance.complete)}
               >
-                Complete Credentialing → Privilege Request
+                {(selectedApp.staffCategory?.requiresCommitteeReview ?? selectedApp.provider.profile?.staffCategory?.requiresCommitteeReview) === false
+                  ? 'Complete Credentialing → Staff Clearance'
+                  : 'Complete Credentialing → Privilege Request'}
+              </button>
+            )}
+            {selectedApp.workflowPhase === 'STAFF_CLEARANCE' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: '1.5rem', width: '100%' }}
+                onClick={() => handleApproveClearance(selectedApp.id)}
+                disabled={actionLoading}
+              >
+                Approve Staff Clearance (No Committee)
               </button>
             )}
             <BackgroundVerificationPanel applicationId={selectedApp.id} />

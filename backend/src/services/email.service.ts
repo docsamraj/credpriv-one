@@ -5,6 +5,7 @@ export interface EmailOptions {
   subject: string;
   text: string;
   html?: string;
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
 }
 
 let transporter: nodemailer.Transporter | null = null;
@@ -40,6 +41,11 @@ export async function sendEmail(opts: EmailOptions): Promise<{ delivered: boolea
       subject: opts.subject,
       text: opts.text,
       html: opts.html || opts.text.replace(/\n/g, '<br>'),
+      attachments: opts.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType || 'application/pdf',
+      })),
     });
     return { delivered: true, mode: 'smtp' };
   }

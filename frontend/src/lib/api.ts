@@ -107,6 +107,27 @@ export function getUser(): {
   return raw ? JSON.parse(raw) : null;
 }
 
+export async function downloadBlob(endpoint: string, filename: string): Promise<void> {
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers: Record<string, string> = {};
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+  const res = await fetch(`${API_URL}${endpoint}`, { headers });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text.slice(0, 200) || `Download failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function setUser(user: unknown) {
   localStorage.setItem('user', JSON.stringify(user));
 }

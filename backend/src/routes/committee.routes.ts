@@ -40,6 +40,20 @@ router.get(
 );
 
 router.get(
+  '/reviews/:id/packet.pdf',
+  requirePermission('committee.review'),
+  asyncHandler(async (req, res) => {
+    const reviewId = paramId(req.params.id);
+    const packet = await committeeService.getReviewPacket(reviewId);
+    const { generateReviewPacketPdf } = await import('../services/pdf-document.service');
+    const pdf = await generateReviewPacketPdf(packet as Record<string, unknown>);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="review-packet-${reviewId.slice(0, 8)}.pdf"`);
+    res.send(pdf);
+  })
+);
+
+router.get(
   '/reviews/:id',
   requirePermission('committee.review'),
   asyncHandler(async (req, res) => {
@@ -69,6 +83,32 @@ router.post(
       req
     );
     success(res, decision, 'Decision recorded');
+  })
+);
+
+router.get(
+  '/meetings/:id/minutes.pdf',
+  requirePermission('committee.meeting.read'),
+  asyncHandler(async (req, res) => {
+    const meetingId = paramId(req.params.id);
+    const meeting = await prisma.committeeMeeting.findUnique({
+      where: { id: meetingId },
+      include: { committee: true },
+    });
+    if (!meeting?.minutes) {
+      res.status(404).json({ success: false, error: 'Meeting minutes not found' });
+      return;
+    }
+    const { generateMeetingMinutesPdf } = await import('../services/pdf-document.service');
+    const pdf = await generateMeetingMinutesPdf({
+      committeeName: meeting.committee.name,
+      meetingTitle: meeting.title,
+      minutes: meeting.minutes,
+      sentAt: meeting.minutesSentAt || undefined,
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="mom-${meetingId.slice(0, 8)}.pdf"`);
+    res.send(pdf);
   })
 );
 

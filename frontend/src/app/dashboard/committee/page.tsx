@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { api, downloadBlob } from '@/lib/api';
+import { Download } from 'lucide-react';
 
 interface PrivilegeRequest {
   id: string;
@@ -479,6 +480,7 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
   const [rationale, setRationale] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('summary');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     api<ReviewPacket>(`/api/committees/reviews/${reviewId}`).then(setPacket).catch(console.error);
@@ -532,7 +534,27 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
               </p>
             )}
           </div>
-          <button type="button" onClick={onClose} className="btn btn-secondary">Close</button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={downloading}
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  await downloadBlob(`/api/committees/reviews/${reviewId}/packet.pdf`, `review-packet-${reviewId.slice(0, 8)}.pdf`);
+                } catch (err) {
+                  setMessage(err instanceof Error ? err.message : 'PDF download failed');
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+            >
+              <Download size={14} style={{ display: 'inline', marginRight: 4 }} />
+              {downloading ? 'Generating…' : 'Download PDF'}
+            </button>
+            <button type="button" onClick={onClose} className="btn btn-secondary">Close</button>
+          </div>
         </div>
 
         {message && <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem', marginBottom: '1rem' }}>{message}</p>}

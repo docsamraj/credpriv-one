@@ -2,6 +2,7 @@ import prisma from '../lib/prisma';
 import { sendEmail } from './email.service';
 import { dispatchWebhookEvent } from './webhook-dispatch.service';
 import { IntegrationWebhookEvent } from '@credpriv/shared';
+import { generateMeetingMinutesPdf } from './pdf-document.service';
 
 /** Resolve email for a committee member (user account or invitee metadata). */
 function memberEmail(member: {
@@ -32,6 +33,13 @@ export async function sendMeetingMinutesNotifications(opts: {
   const sent: Array<{ type: string; target: string }> = [];
   const emailBody = buildMomEmailBody(opts.committeeName, opts.meetingTitle, opts.minutes);
   const subject = `Minutes of Meeting — ${opts.meetingTitle}`;
+  const pdfAttachment = await generateMeetingMinutesPdf({
+    committeeName: opts.committeeName,
+    meetingTitle: opts.meetingTitle,
+    minutes: opts.minutes,
+    sentAt: new Date(),
+  });
+  const pdfFilename = `MoM-${opts.meetingTitle.replace(/[^\w\-]+/g, '_').slice(0, 40)}.pdf`;
 
   for (const userId of opts.recipientUserIds) {
     await prisma.notification.create({
@@ -47,13 +55,23 @@ export async function sendMeetingMinutesNotifications(opts: {
 
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
     if (user?.email) {
-      const result = await sendEmail({ to: user.email, subject, text: emailBody });
+      const result = await sendEmail({
+        to: user.email,
+        subject,
+        text: `${emailBody}\n\n(A PDF copy of these minutes is attached.)`,
+        attachments: [{ filename: pdfFilename, content: pdfAttachment, contentType: 'application/pdf' }],
+      });
       sent.push({ type: result.mode === 'smtp' ? 'EMAIL' : 'EMAIL_STUB', target: user.email });
     }
   }
 
   for (const email of opts.additionalEmails) {
-    const result = await sendEmail({ to: email, subject, text: emailBody });
+    const result = await sendEmail({
+      to: email,
+      subject,
+      text: `${emailBody}\n\n(A PDF copy of these minutes is attached.)`,
+      attachments: [{ filename: pdfFilename, content: pdfAttachment, contentType: 'application/pdf' }],
+    });
     sent.push({ type: result.mode === 'smtp' ? 'EMAIL' : 'EMAIL_STUB', target: email });
   }
 

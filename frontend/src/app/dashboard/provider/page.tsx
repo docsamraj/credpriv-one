@@ -15,6 +15,7 @@ interface StaffCategory {
   id: string;
   code: string;
   name: string;
+  requiresCommitteeReview?: boolean;
   subtypes: StaffSubtype[];
 }
 
@@ -58,7 +59,7 @@ interface Application {
   currentStage?: string;
   staffCategoryId?: string;
   staffSubtypeId?: string;
-  staffCategory?: { name: string; code: string };
+  staffCategory?: { name: string; code: string; requiresCommitteeReview?: boolean };
   staffSubtype?: { name: string; code: string };
   jobDescription?: JobDescription;
   privilegeRequests?: PrivilegeRequest[];
@@ -100,8 +101,17 @@ const PHASE_LABELS: Record<string, string> = {
   CREDENTIALING: 'Credentialing',
   PRIVILEGE_REQUEST: 'Privilege Request',
   COMMITTEE_REVIEW: 'Committee Review',
+  STAFF_CLEARANCE: 'Staff Clearance',
   COMPLETE: 'Complete',
 };
+
+const CLINICAL_WORKFLOW = ['APPOINTMENT', 'DOCUMENT_UPLOAD', 'CREDENTIALING', 'PRIVILEGE_REQUEST', 'COMMITTEE_REVIEW', 'COMPLETE'];
+const NON_CLINICAL_WORKFLOW = ['APPOINTMENT', 'DOCUMENT_UPLOAD', 'CREDENTIALING', 'STAFF_CLEARANCE', 'COMPLETE'];
+
+function workflowStepsFor(app?: Application | null): string[] {
+  const requiresCommittee = app?.staffCategory?.requiresCommitteeReview !== false;
+  return requiresCommittee ? CLINICAL_WORKFLOW : NON_CLINICAL_WORKFLOW;
+}
 
 const PRIVILEGE_LEVELS = [
   { value: 'FULL', label: 'Full' },
@@ -109,7 +119,7 @@ const PRIVILEGE_LEVELS = [
   { value: 'NONE', label: 'None' },
 ];
 
-const WORKFLOW_STEPS = ['APPOINTMENT', 'DOCUMENT_UPLOAD', 'CREDENTIALING', 'PRIVILEGE_REQUEST', 'COMMITTEE_REVIEW', 'COMPLETE'];
+const WORKFLOW_STEPS = CLINICAL_WORKFLOW;
 
 export default function ProviderDashboard() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -359,6 +369,9 @@ export default function ProviderDashboard() {
   const privilegeApp = selectedApp?.workflowPhase === 'PRIVILEGE_REQUEST' ? selectedApp : activeApp?.workflowPhase === 'PRIVILEGE_REQUEST' ? selectedApp : null;
   const showPrivilegeRequest = privilegeApp?.workflowPhase === 'PRIVILEGE_REQUEST' && !!privilegeApp?.jobDescription;
   const selectedSubtypes = categories.find((c) => c.id === newCategoryId)?.subtypes ?? [];
+  const selectedCategory = categories.find((c) => c.id === newCategoryId);
+  const activeWorkflowSteps = workflowStepsFor(activeApp);
+  const showStaffClearanceWait = activeApp?.workflowPhase === 'STAFF_CLEARANCE';
 
   return (
     <div>
@@ -382,8 +395,8 @@ export default function ProviderDashboard() {
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h4 style={{ marginBottom: '0.75rem' }}>Credentialing Journey</h4>
           <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-            {WORKFLOW_STEPS.map((step, i) => {
-              const current = WORKFLOW_STEPS.indexOf(activeApp.workflowPhase || 'APPOINTMENT');
+            {activeWorkflowSteps.map((step, i) => {
+              const current = activeWorkflowSteps.indexOf(activeApp.workflowPhase || 'APPOINTMENT');
               const done = i < current;
               const active = i === current;
               return (
@@ -397,8 +410,20 @@ export default function ProviderDashboard() {
             <p style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
               Role: <strong>{activeApp.staffCategory?.name}</strong> — {activeApp.staffSubtype.name}
               {activeApp.clinicalUnit ? ` · ${activeApp.clinicalUnit}` : ''}
+              {activeApp.staffCategory?.requiresCommitteeReview === false && (
+                <span className="badge badge-info" style={{ marginLeft: '0.5rem' }}>No committee review</span>
+              )}
             </p>
           )}
+        </div>
+      )}
+
+      {showStaffClearanceWait && (
+        <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--color-primary)' }}>
+          <h4 style={{ marginBottom: '0.5rem' }}>Awaiting Staff Clearance</h4>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+            Your documents have been verified. Credentialing staff will complete your onboarding approval — this role does not go through the credentialing committee.
+          </p>
         </div>
       )}
 
@@ -495,7 +520,14 @@ export default function ProviderDashboard() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }} onClick={() => setShowNewApp(false)}>
           <div className="card" style={{ width: '100%', maxWidth: '480px', margin: '1rem' }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginBottom: '1rem' }}>New Appointment Application</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>Select your staff category and specific role. This determines required documents and job-description privileges.</p>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+              Select your staff category and role. Clinical roles go through committee review; administrative and support staff are cleared by credentialing staff only.
+            </p>
+            {selectedCategory?.requiresCommitteeReview === false && (
+              <p style={{ fontSize: '0.8rem', padding: '0.5rem 0.75rem', background: 'var(--color-bg)', borderRadius: 6, marginBottom: '1rem' }}>
+                <strong>{selectedCategory.name}</strong> roles do not require privilege matrices or credentialing committee review.
+              </p>
+            )}
             <div className="form-group">
               <label>Category</label>
               <select className="form-input" value={newCategoryId} onChange={(e) => { setNewCategoryId(e.target.value); setNewSubtypeId(''); }}>

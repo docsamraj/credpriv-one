@@ -8,7 +8,9 @@ import {
   DOCTOR_EXTRA_DOCS,
   NURSE_EXTRA_DOCS,
   TECHNICIAN_EXTRA_DOCS,
+  NON_CLINICAL_DOCS,
   PrivilegeGrantLevel,
+  categoryRequiresCommittee,
 } from '@credpriv/shared';
 import { PrismaClient } from '@prisma/client';
 
@@ -151,14 +153,34 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
   const subtypeIds: Record<string, string> = {};
 
   for (const [idx, cat] of [
-    { code: StaffCategory.DOCTOR, name: 'Doctors', description: 'Consultants, Associate Consultants, RMOs' },
-    { code: StaffCategory.NURSE, name: 'Nurses', description: 'Senior and Fresher nurses' },
-    { code: StaffCategory.TECHNICIAN, name: 'Technicians', description: 'CSSD, OT, Cath Lab, Neuro, CCU, ICU, SICU, HDU, Perfusionist' },
+    { code: StaffCategory.DOCTOR, name: 'Doctors', description: 'Consultants, Associate Consultants, RMOs', requiresCommitteeReview: true },
+    { code: StaffCategory.NURSE, name: 'Nurses', description: 'Senior and Fresher nurses', requiresCommitteeReview: true },
+    { code: StaffCategory.TECHNICIAN, name: 'Technicians', description: 'CSSD, OT, Cath Lab, Neuro, CCU, ICU, SICU, HDU, Perfusionist', requiresCommitteeReview: true },
+    { code: StaffCategory.ADMINISTRATIVE, name: 'Administrative', description: 'Admin officers, front desk, medical records', requiresCommitteeReview: false },
+    { code: StaffCategory.HR, name: 'Human Resources', description: 'HR executives, managers, recruiters', requiresCommitteeReview: false },
+    { code: StaffCategory.FINANCE, name: 'Finance & Accounts', description: 'Accountants, billing, cashiers', requiresCommitteeReview: false },
+    { code: StaffCategory.IT, name: 'Information Technology', description: 'IT support, system admins, network engineers', requiresCommitteeReview: false },
+    { code: StaffCategory.ENGINEERING, name: 'Engineering & Maintenance', description: 'Biomedical, maintenance, electrical', requiresCommitteeReview: false },
+    { code: StaffCategory.HOUSEKEEPING, name: 'Housekeeping & Sanitation', description: 'Housekeeping staff, supervisors, ward attendants', requiresCommitteeReview: false },
+    { code: StaffCategory.SECURITY, name: 'Security', description: 'Security guards and supervisors', requiresCommitteeReview: false },
+    { code: StaffCategory.FOOD_SERVICES, name: 'Food & Nutrition Services', description: 'Kitchen, diet assistants, supervisors', requiresCommitteeReview: false },
+    { code: StaffCategory.STORES, name: 'Stores & Purchase', description: 'Store keepers, purchase officers, inventory', requiresCommitteeReview: false },
   ].entries()) {
     const row = await prisma.staffCategory.upsert({
       where: { code: cat.code },
-      update: { name: cat.name, description: cat.description, sortOrder: idx + 1 },
-      create: { code: cat.code, name: cat.name, description: cat.description, sortOrder: idx + 1 },
+      update: {
+        name: cat.name,
+        description: cat.description,
+        sortOrder: idx + 1,
+        requiresCommitteeReview: cat.requiresCommitteeReview,
+      },
+      create: {
+        code: cat.code,
+        name: cat.name,
+        description: cat.description,
+        sortOrder: idx + 1,
+        requiresCommitteeReview: cat.requiresCommitteeReview,
+      },
     });
     categoryIds[cat.code] = row.id;
   }
@@ -283,6 +305,23 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
     const allDocs = [...BASE_EDUCATION_DOCS, ...extra];
     await prisma.requiredDocument.createMany({
       data: allDocs.map((d) => ({
+        name: d.name,
+        type: d.type,
+        staffCategoryId: catId,
+        sortOrder: d.sortOrder,
+        isRequired: true,
+      })),
+    });
+  }
+
+  // Non-clinical categories share a lighter document checklist
+  for (const code of Object.values(StaffCategory)) {
+    if (categoryRequiresCommittee(code)) continue;
+    const catId = categoryIds[code];
+    if (!catId) continue;
+    await prisma.requiredDocument.deleteMany({ where: { staffCategoryId: catId, staffSubtypeId: null } });
+    await prisma.requiredDocument.createMany({
+      data: NON_CLINICAL_DOCS.map((d) => ({
         name: d.name,
         type: d.type,
         staffCategoryId: catId,

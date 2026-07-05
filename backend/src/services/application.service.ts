@@ -9,6 +9,15 @@ import { committeeService } from './committee.service';
 import { dispatchWebhookEvent } from './webhook-dispatch.service';
 import { IntegrationWebhookEvent } from '@credpriv/shared';
 
+async function categoryRequiresCommittee(staffCategoryId?: string | null): Promise<boolean> {
+  if (!staffCategoryId) return true;
+  const cat = await prisma.staffCategory.findUnique({
+    where: { id: staffCategoryId },
+    select: { requiresCommitteeReview: true },
+  });
+  return cat?.requiresCommitteeReview ?? true;
+}
+
 export class ApplicationService {
   async list(filters?: { status?: string; providerId?: string; committeeReady?: boolean; workflowPhase?: string }) {
     return prisma.application.findMany({
@@ -112,7 +121,7 @@ export class ApplicationService {
       throw new AppError(400, 'Application cannot be submitted in current status');
     }
     if (!app.staffSubtypeId) {
-      throw new AppError(400, 'Select your role (Doctor/Nurse/Technician) before submitting');
+      throw new AppError(400, 'Select your staff role before submitting');
     }
 
     const updated = await prisma.application.update({
@@ -144,14 +153,17 @@ export class ApplicationService {
 
     await documentComplianceService.assertComplete(id);
 
+    const requiresCommittee = await categoryRequiresCommittee(app.staffCategoryId);
+    const nextPhase = requiresCommittee ? WorkflowPhase.PRIVILEGE_REQUEST : WorkflowPhase.STAFF_CLEARANCE;
+
     const updated = await prisma.application.update({
       where: { id },
       data: {
         status: 'UNDER_VERIFICATION',
-        workflowPhase: WorkflowPhase.PRIVILEGE_REQUEST,
+        workflowPhase: nextPhase,
         credentialingCompleteAt: new Date(),
         documentsCompleteAt: new Date(),
-        currentStage: 'PRIVILEGE_REQUEST',
+        currentStage: nextPhase,
       },
     });
 
@@ -162,9 +174,53 @@ export class ApplicationService {
     await notificationService.notifyApplicationStatusChange(
       id,
       updated.status,
-      'Credentialing review is complete. You may now request privileges from your job description.'
+      requiresCommittee
+        ? 'Credentialing review is complete. You may now request privileges from your job description.'
+        : 'Credentialing review is complete. Your application is pending final staff clearance (no committee review required).'
     );
+    await dispatchWebhookEvent(IntegrationWebhookEvent.CREDENTIALING_COMPLETE, {
+      applicationId: id,
+      providerId: app.providerId,
+      requiresCommitteeReview: requiresCommittee,
+    });
     return updated;
+  }
+
+  async approveStaffClearance(id: string, req?: Request) {
+    const app = await prisma.application.findUnique({ where: { id } });
+    if (!app) throw new AppError(404, 'Application not found');
+    if (app.workflowPhase !== WorkflowPhase.STAFF_CLEARANCE) {
+      throw new AppError(400, 'Application is not awaiting staff clearance');
+    }
+    if (await categoryRequiresCommittee(app.staffCategoryId)) {
+      throw new AppError(400, 'Clinical applications require committee review, not staff clearance');
+    }
+
+    const updated = await prisma.application.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        workflowPhase: WorkflowPhase.COMPLETE,
+        currentStage: 'COMPLETE',
+      },
+    });
+
+    await createAuditLog(
+      { action: 'APPROVE', entityType: 'Application', entityId: id, newValue: updated, metadata: { action: 'staff_clearance_approved' } },
+      req
+    );
+    await notificationService.notifyApplicationStatusChange(
+      id,
+      updated.status,
+      'Your onboarding has been approved. Welcome to the hospital.'
+    );
+    await dispatchWebhookEvent(IntegrationWebhookEvent.APPLICATION_APPROVED, {
+      applicationId: id,
+      providerId: app.providerId,
+      status: updated.status,
+      pathway: 'STAFF_CLEARANCE',
+    });
+    return this.getById(id);
   }
 
   async savePrivilegeRequests(
@@ -322,12 +378,13 @@ export class ApplicationService {
   }
 
   async getStaffQueues() {
-    const [newApps, pendingDocs, pendingPsv, committeeReady, privilegePending] = await Promise.all([
+    const [newApps, pendingDocs, pendingPsv, committeeReady, privilegePending, staffClearancePending] = await Promise.all([
       prisma.application.count({ where: { status: 'SUBMITTED', workflowPhase: WorkflowPhase.DOCUMENT_UPLOAD } }),
       prisma.document.count({ where: { credential: { status: 'PENDING' } } }),
       prisma.verificationRequest.count({ where: { status: 'PENDING' } }),
       prisma.application.count({ where: { committeeReady: true, workflowPhase: WorkflowPhase.COMMITTEE_REVIEW } }),
       prisma.application.count({ where: { workflowPhase: WorkflowPhase.PRIVILEGE_REQUEST } }),
+      prisma.application.count({ where: { workflowPhase: WorkflowPhase.STAFF_CLEARANCE } }),
     ]);
 
     return {
@@ -336,6 +393,7 @@ export class ApplicationService {
       pendingPsv,
       committeeReady,
       privilegePending,
+      staffClearancePending,
     };
   }
 }

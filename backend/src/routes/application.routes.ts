@@ -138,6 +138,15 @@ router.post(
 );
 
 router.post(
+  '/:id/approve-staff-clearance',
+  requirePermission('committee.mark_ready'),
+  asyncHandler(async (req, res) => {
+    const app = await applicationService.approveStaffClearance(paramId(req.params.id), req);
+    success(res, app, 'Staff clearance approved — onboarding complete');
+  })
+);
+
+router.post(
   '/:id/grant-privileges',
   requirePermission('committee.decide'),
   asyncHandler(async (req, res) => {

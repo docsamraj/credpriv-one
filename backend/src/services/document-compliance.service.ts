@@ -2,6 +2,11 @@ import prisma from '../lib/prisma';
 import { AppError } from '../utils/response';
 import type { DocumentComplianceReport } from '@credpriv/shared';
 
+/** When false (default), document checklist is advisory — upload what you have. */
+export function isDocumentGateEnforced(): boolean {
+  return process.env.ENFORCE_DOCUMENT_GATE === 'true';
+}
+
 export class DocumentComplianceService {
   async getCompliance(applicationId: string): Promise<DocumentComplianceReport> {
     const app = await prisma.application.findUnique({
@@ -12,7 +17,8 @@ export class DocumentComplianceService {
     if (!app.staffCategoryId) {
       return {
         applicationId,
-        complete: false,
+        complete: true,
+        gateEnforced: isDocumentGateEnforced(),
         requiredCount: 0,
         uploadedCount: 0,
         missing: [],
@@ -20,9 +26,8 @@ export class DocumentComplianceService {
       };
     }
 
-    const required = await prisma.requiredDocument.findMany({
+    const checklist = await prisma.requiredDocument.findMany({
       where: {
-        isRequired: true,
         OR: [
           { staffCategoryId: app.staffCategoryId, staffSubtypeId: null },
           ...(app.staffSubtypeId ? [{ staffSubtypeId: app.staffSubtypeId }] : []),
@@ -37,27 +42,31 @@ export class DocumentComplianceService {
     });
     const uploadedTypes = new Set(uploadedDocs.map((d) => d.type));
 
-    const items = required.map((doc) => ({
+    const items = checklist.map((doc) => ({
       type: doc.type,
       name: doc.name,
       isRequired: doc.isRequired,
       uploaded: uploadedTypes.has(doc.type),
     }));
 
+    const gateEnforced = isDocumentGateEnforced();
     const missing = items.filter((i) => i.isRequired && !i.uploaded);
 
     return {
       applicationId,
-      complete: missing.length === 0 && items.length > 0,
+      complete: gateEnforced ? missing.length === 0 && items.some((i) => i.isRequired) : true,
+      gateEnforced,
       requiredCount: items.filter((i) => i.isRequired).length,
       uploadedCount: items.filter((i) => i.uploaded).length,
-      missing,
+      missing: gateEnforced ? missing : items.filter((i) => !i.uploaded),
       items,
     };
   }
 
   async assertComplete(applicationId: string) {
     const report = await this.getCompliance(applicationId);
+    if (!isDocumentGateEnforced()) return report;
+
     if (!report.complete) {
       const names = report.missing.map((m: { name: string }) => m.name).join(', ');
       throw new AppError(

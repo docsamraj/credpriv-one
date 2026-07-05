@@ -361,7 +361,7 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
         type: d.type,
         staffCategoryId: catId,
         sortOrder: d.sortOrder,
-        isRequired: true,
+        isRequired: false,
       })),
     });
   }
@@ -378,7 +378,7 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
         type: d.type,
         staffCategoryId: catId,
         sortOrder: d.sortOrder,
-        isRequired: true,
+        isRequired: false,
       })),
     });
   }

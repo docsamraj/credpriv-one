@@ -58,6 +58,8 @@ export interface DocumentComplianceItem {
 export interface DocumentComplianceReport {
   applicationId: string;
   complete: boolean;
+  /** When false, uploads are advisory and do not block credentialing */
+  gateEnforced?: boolean;
   requiredCount: number;
   uploadedCount: number;
   missing: DocumentComplianceItem[];

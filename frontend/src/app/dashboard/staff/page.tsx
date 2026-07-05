@@ -43,9 +43,11 @@ interface Application {
 
 interface DocumentComplianceReport {
   complete: boolean;
+  gateEnforced?: boolean;
   requiredCount: number;
   uploadedCount: number;
   missing: Array<{ type: string; name: string }>;
+  items?: Array<{ type: string; name: string; uploaded?: boolean }>;
 }
 
 export default function StaffDashboard() {
@@ -366,8 +368,10 @@ export default function StaffDashboard() {
                 <>
                   <dt style={{ color: 'var(--color-text-muted)' }}>Documents</dt>
                   <dd>
-                    {docCompliance.uploadedCount}/{docCompliance.requiredCount} uploaded
-                    {docCompliance.complete ? (
+                    {docCompliance.uploadedCount}/{docCompliance.items?.length ?? docCompliance.requiredCount} on file
+                    {docCompliance.gateEnforced === false ? (
+                      <span className="badge badge-info" style={{ marginLeft: '0.5rem' }}>Optional uploads</span>
+                    ) : docCompliance.complete ? (
                       <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Complete</span>
                     ) : (
                       <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>Incomplete</span>
@@ -376,9 +380,19 @@ export default function StaffDashboard() {
                 </>
               )}
             </dl>
-            {docCompliance && !docCompliance.complete && docCompliance.missing.length > 0 && (
+            {docCompliance && docCompliance.gateEnforced !== false && !docCompliance.complete && docCompliance.missing.length > 0 && (
               <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--color-bg)', borderRadius: 8, fontSize: '0.875rem' }}>
-                <strong>Missing documents:</strong>
+                <strong>Missing required documents:</strong>
+                <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+                  {docCompliance.missing.map((m) => (
+                    <li key={m.type}>{m.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {docCompliance && docCompliance.gateEnforced === false && docCompliance.missing.length > 0 && (
+              <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--color-bg)', borderRadius: 8, fontSize: '0.875rem' }}>
+                <strong>Not yet uploaded (optional for now):</strong>
                 <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
                   {docCompliance.missing.map((m) => (
                     <li key={m.type}>{m.name}</li>
@@ -395,7 +409,7 @@ export default function StaffDashboard() {
                   selectedApp.id,
                   selectedApp.staffCategory?.requiresCommitteeReview ?? selectedApp.provider.profile?.staffCategory?.requiresCommitteeReview
                 )}
-                disabled={actionLoading || (docCompliance !== null && !docCompliance.complete)}
+                disabled={actionLoading || (docCompliance?.gateEnforced === true && docCompliance !== null && !docCompliance.complete)}
               >
                 {(selectedApp.staffCategory?.requiresCommitteeReview ?? selectedApp.provider.profile?.staffCategory?.requiresCommitteeReview) === false
                   ? 'Complete Credentialing → Dept Approval'

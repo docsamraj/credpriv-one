@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma';
 import { AppError } from '../utils/response';
-import { documentComplianceService } from './document-compliance.service';
+import { documentComplianceService, isDocumentGateEnforced } from './document-compliance.service';
 import { BackgroundVerificationStatus } from '@credpriv/shared';
 
 export class CommitteeReviewPacketService {
@@ -141,12 +141,21 @@ export class CommitteeReviewPacketService {
 
     const flags: Array<{ severity: string; code: string; message: string }> = [];
 
-    if (!documentCompliance.complete) {
+    if (isDocumentGateEnforced() && !documentCompliance.complete) {
       flags.push({
         severity: 'HIGH',
         code: 'DOCS_INCOMPLETE',
         message: `${documentCompliance.missing.length} required document(s) still missing`,
       });
+    } else if (!isDocumentGateEnforced()) {
+      const pending = documentCompliance.items.filter((i) => !i.uploaded);
+      if (pending.length > 0) {
+        flags.push({
+          severity: 'INFO',
+          code: 'DOCS_PENDING',
+          message: `${pending.length} suggested document(s) not yet uploaded`,
+        });
+      }
     }
 
     const expiringSoon = credentials.filter((c) => {

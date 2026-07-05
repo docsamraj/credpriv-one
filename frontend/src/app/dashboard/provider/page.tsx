@@ -81,9 +81,11 @@ interface Document {
 
 interface DocumentComplianceReport {
   complete: boolean;
+  gateEnforced?: boolean;
   requiredCount: number;
   uploadedCount: number;
   missing: Array<{ type: string; name: string }>;
+  items?: Array<{ type: string; name: string; uploaded: boolean }>;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -473,15 +475,20 @@ export default function ProviderDashboard() {
         <div className="card" style={{ marginTop: '1.5rem' }}>
           <h3 style={{ marginBottom: '1rem' }}>Education & Credential Documents</h3>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-            Upload 10th, 12th, degree certificates, medical/nursing license, and government ID as required for your role.
+            Upload whatever you have available now — certificates, licenses, and ID. Credentialing staff may request additional documents later if needed.
           </p>
           {docCompliance && (
             <p style={{ fontSize: '0.875rem', marginTop: '0.75rem' }}>
-              Progress: <strong>{docCompliance.uploadedCount}/{docCompliance.requiredCount}</strong> required documents uploaded
-              {docCompliance.complete ? (
+              Uploaded: <strong>{docCompliance.uploadedCount}</strong>
+              {(docCompliance.items?.length ?? docCompliance.requiredCount) > 0 && (
+                <> of <strong>{docCompliance.items?.length ?? docCompliance.requiredCount}</strong> suggested documents</>
+              )}
+              {docCompliance.gateEnforced === false ? (
+                <span className="badge badge-info" style={{ marginLeft: '0.5rem' }}>All optional for now</span>
+              ) : docCompliance.complete ? (
                 <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>Ready for staff review</span>
               ) : (
-                <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>{docCompliance.missing.length} missing</span>
+                <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }}>{docCompliance.missing.length} still needed</span>
               )}
             </p>
           )}

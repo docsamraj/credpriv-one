@@ -4,6 +4,9 @@ import { createAuditLog } from '../middleware/audit';
 import { Request } from 'express';
 import { WorkflowPhase } from '@credpriv/shared';
 import { documentComplianceService } from './document-compliance.service';
+import { notificationService } from './notification.service';
+import { dispatchWebhookEvent } from './webhook-dispatch.service';
+import { IntegrationWebhookEvent } from '@credpriv/shared';
 
 export class ApplicationService {
   async list(filters?: { status?: string; providerId?: string; committeeReady?: boolean; workflowPhase?: string }) {
@@ -122,6 +125,11 @@ export class ApplicationService {
     });
 
     await createAuditLog({ action: 'SUBMIT', entityType: 'Application', entityId: id, newValue: updated }, req);
+    await notificationService.notifyApplicationStatusChange(
+      id,
+      updated.status,
+      'Your application has been submitted. Please upload required education and credential documents.'
+    );
     return updated;
   }
 
@@ -149,6 +157,11 @@ export class ApplicationService {
     await createAuditLog(
       { action: 'UPDATE', entityType: 'Application', entityId: id, newValue: updated, metadata: { action: 'credentialing_complete' } },
       req
+    );
+    await notificationService.notifyApplicationStatusChange(
+      id,
+      updated.status,
+      'Credentialing review is complete. You may now request privileges from your job description.'
     );
     return updated;
   }
@@ -213,6 +226,11 @@ export class ApplicationService {
       { action: 'SUBMIT', entityType: 'Application', entityId: id, newValue: updated, metadata: { action: 'privileges_submitted' } },
       req
     );
+    await notificationService.notifyApplicationStatusChange(
+      id,
+      updated.status,
+      'Your privilege requests have been submitted and are queued for committee review.'
+    );
     return updated;
   }
 
@@ -253,6 +271,16 @@ export class ApplicationService {
       { action: 'APPROVE', entityType: 'Application', entityId: id, newValue: updated, metadata: { action: 'privileges_granted' } },
       req
     );
+    await notificationService.notifyApplicationStatusChange(
+      id,
+      updated.status,
+      'Your clinical privileges have been granted by the committee. Your credentialing cycle is complete.'
+    );
+    await dispatchWebhookEvent(IntegrationWebhookEvent.PRIVILEGE_GRANTED, {
+      applicationId: id,
+      providerId: app.providerId,
+      status: updated.status,
+    });
     return this.getById(id);
   }
 

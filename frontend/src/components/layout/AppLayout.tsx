@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getUser, clearToken } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import NotificationBell from './NotificationBell';
 
 interface NavItem {
   href: string;
@@ -83,8 +84,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div>
             <strong>CredPriv One</strong>
           </div>
-          <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-            {user?.roles?.join(' · ')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <NotificationBell />
+            <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+              {user?.roles?.join(' · ')}
+            </span>
           </div>
         </header>
         <main className="page-content">{children}</main>

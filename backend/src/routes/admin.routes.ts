@@ -73,6 +73,38 @@ router.get(
 );
 
 router.get(
+  '/webhooks',
+  requirePermission('integration.admin'),
+  asyncHandler(async (_req, res) => {
+    const subs = await prisma.webhookSubscription.findMany({
+      include: { system: { select: { code: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    success(res, subs);
+  })
+);
+
+router.post(
+  '/webhooks',
+  requirePermission('integration.admin'),
+  asyncHandler(async (req, res) => {
+    const system = await prisma.integrationSystem.findUnique({ where: { code: req.body.systemCode } });
+    if (!system) return res.status(404).json({ success: false, error: 'Integration system not found' });
+
+    const sub = await prisma.webhookSubscription.create({
+      data: {
+        systemId: system.id,
+        event: req.body.event,
+        targetUrl: req.body.targetUrl,
+        secretHash: req.body.secret || null,
+        isActive: req.body.isActive !== false,
+      },
+    });
+    success(res, sub, 'Webhook subscription created', 201);
+  })
+);
+
+router.get(
   '/audit-logs',
   requirePermission('audit.read'),
   asyncHandler(async (req, res) => {

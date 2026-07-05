@@ -3,6 +3,9 @@ import { AppError } from '../utils/response';
 import { createAuditLog } from '../middleware/audit';
 import { Request } from 'express';
 import { committeeReviewPacketService } from './committee-review-packet.service';
+import { notificationService } from './notification.service';
+import { dispatchWebhookEvent } from './webhook-dispatch.service';
+import { IntegrationWebhookEvent } from '@credpriv/shared';
 
 export class CommitteeService {
   async listCommittees() {
@@ -85,6 +88,29 @@ export class CommitteeService {
       await prisma.committeeReview.update({
         where: { id: reviewId },
         data: { status: 'COMPLETED' },
+      });
+
+      const statusMessages: Record<string, string> = {
+        APPROVED: 'Your application has been approved by the committee.',
+        DENIED: 'Your application was denied by the committee. Contact credentialing staff for details.',
+        NEEDS_INFO: 'The committee has returned your application for additional information.',
+        COMMITTEE: 'Your application has been deferred to a future committee meeting.',
+      };
+      await notificationService.notifyApplicationStatusChange(
+        review.applicationId,
+        newStatus,
+        statusMessages[newStatus] || `Application status updated to ${newStatus}.`
+      );
+
+      const webhookEvent =
+        decisionType === 'APPROVE'
+          ? IntegrationWebhookEvent.APPLICATION_APPROVED
+          : IntegrationWebhookEvent.COMMITTEE_DECISION_RECORDED;
+      await dispatchWebhookEvent(webhookEvent, {
+        reviewId,
+        applicationId: review.applicationId,
+        decisionType,
+        newStatus,
       });
     }
 

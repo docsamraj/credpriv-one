@@ -1,4 +1,7 @@
 import prisma from '../lib/prisma';
+import { sendEmail } from './email.service';
+import { dispatchWebhookEvent } from './webhook-dispatch.service';
+import { IntegrationWebhookEvent } from '@credpriv/shared';
 
 /** Resolve email for a committee member (user account or invitee metadata). */
 function memberEmail(member: {
@@ -27,13 +30,15 @@ export async function sendMeetingMinutesNotifications(opts: {
   additionalEmails: string[];
 }) {
   const sent: Array<{ type: string; target: string }> = [];
+  const emailBody = buildMomEmailBody(opts.committeeName, opts.meetingTitle, opts.minutes);
+  const subject = `Minutes of Meeting — ${opts.meetingTitle}`;
 
   for (const userId of opts.recipientUserIds) {
     await prisma.notification.create({
       data: {
         userId,
         channel: 'IN_APP',
-        title: `Minutes of Meeting — ${opts.meetingTitle}`,
+        title: subject,
         message: `Minutes for ${opts.committeeName} meeting are available.\n\n${opts.minutes.slice(0, 500)}${opts.minutes.length > 500 ? '…' : ''}`,
         metadata: { meetingId: opts.meetingId, type: 'MEETING_MINUTES' },
       },
@@ -42,23 +47,22 @@ export async function sendMeetingMinutesNotifications(opts: {
 
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
     if (user?.email) {
-      await sendEmail({
-        to: user.email,
-        subject: `Minutes of Meeting — ${opts.meetingTitle}`,
-        body: buildMomEmailBody(opts.committeeName, opts.meetingTitle, opts.minutes),
-      });
-      sent.push({ type: 'EMAIL', target: user.email });
+      const result = await sendEmail({ to: user.email, subject, text: emailBody });
+      sent.push({ type: result.mode === 'smtp' ? 'EMAIL' : 'EMAIL_STUB', target: user.email });
     }
   }
 
   for (const email of opts.additionalEmails) {
-    await sendEmail({
-      to: email,
-      subject: `Minutes of Meeting — ${opts.meetingTitle}`,
-      body: buildMomEmailBody(opts.committeeName, opts.meetingTitle, opts.minutes),
-    });
-    sent.push({ type: 'EMAIL', target: email });
+    const result = await sendEmail({ to: email, subject, text: emailBody });
+    sent.push({ type: result.mode === 'smtp' ? 'EMAIL' : 'EMAIL_STUB', target: email });
   }
+
+  await dispatchWebhookEvent(IntegrationWebhookEvent.MEETING_MINUTES_SENT, {
+    meetingId: opts.meetingId,
+    meetingTitle: opts.meetingTitle,
+    committeeName: opts.committeeName,
+    recipientCount: sent.length,
+  });
 
   return sent;
 }
@@ -72,16 +76,6 @@ Meeting: ${title}
 ${minutes}
 
 — Sent automatically by CredPriv One`;
-}
-
-/** Email delivery — logs to console; set SMTP_* env vars for real delivery later. */
-export async function sendEmail(opts: { to: string; subject: string; body: string }) {
-  if (process.env.SMTP_HOST) {
-    // TODO: wire nodemailer when SMTP is configured
-    console.log(`[EMAIL via SMTP] To: ${opts.to} | Subject: ${opts.subject}`);
-  } else {
-    console.log(`[EMAIL stub] To: ${opts.to}\nSubject: ${opts.subject}\n---\n${opts.body.slice(0, 300)}...`);
-  }
 }
 
 export { memberEmail, memberDisplayName };

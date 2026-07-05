@@ -16,6 +16,7 @@ import documentRoutes from './routes/document.routes';
 import catalogRoutes from './routes/catalog.routes';
 import jobDescriptionRoutes from './routes/job-description.routes';
 import integrationRoutes from './routes/integration.routes';
+import notificationRoutes from './routes/notification.routes';
 import backgroundVerificationRoutes from './routes/background-verification.routes';
 import { seedStaffCatalog } from './lib/seed-staff-catalog';
 import { securityHeaders, rateLimit } from './middleware/security';
@@ -74,6 +75,7 @@ app.use('/api/catalog', catalogRoutes);
 app.use('/api/job-descriptions', jobDescriptionRoutes);
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/background-verifications', backgroundVerificationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((_req, res) => {

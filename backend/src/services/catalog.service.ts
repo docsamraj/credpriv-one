@@ -43,6 +43,20 @@ export class CatalogService {
     return jd;
   }
 
+  async listClinicalUnits(subtypeId: string) {
+    const jds = await prisma.jobDescription.findMany({
+      where: { subtypeId, isActive: true },
+      select: { id: true, clinicalUnit: true, title: true },
+      orderBy: { clinicalUnit: 'asc' },
+    });
+    return jds.map((jd) => ({
+      id: jd.id,
+      clinicalUnit: jd.clinicalUnit,
+      label: jd.clinicalUnit ? jd.clinicalUnit : 'General / Default',
+      title: jd.title,
+    }));
+  }
+
   async getRequiredDocuments(categoryId?: string, subtypeId?: string) {
     return prisma.requiredDocument.findMany({
       where: {

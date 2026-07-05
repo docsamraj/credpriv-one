@@ -3,6 +3,7 @@ import prisma from '../lib/prisma';
 import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { committeeService } from '../services/committee.service';
+import { meetingMinutesService } from '../services/meeting-minutes.service';
 import { caseSummaryService } from '../modules/ai';
 import { asyncHandler, success } from '../utils/response';
 import { paramId } from '../utils/params';
@@ -59,6 +60,32 @@ router.post(
       req
     );
     success(res, decision, 'Decision recorded');
+  })
+);
+
+router.get(
+  '/meetings/:id',
+  requirePermission('committee.meeting.read'),
+  asyncHandler(async (req, res) => {
+    const meeting = await meetingMinutesService.getMeetingForMom(paramId(req.params.id));
+    success(res, meeting);
+  })
+);
+
+router.post(
+  '/meetings/:id/conclude-minutes',
+  requirePermission('committee.decide'),
+  asyncHandler(async (req, res) => {
+    const result = await meetingMinutesService.concludeAndSendMinutes(
+      paramId(req.params.id),
+      {
+        minutes: req.body.minutes,
+        presentMemberIds: req.body.presentMemberIds || [],
+        additionalEmails: req.body.additionalEmails || [],
+      },
+      req
+    );
+    success(res, result, 'Minutes prepared and sent');
   })
 );
 

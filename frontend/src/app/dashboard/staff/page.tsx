@@ -19,6 +19,7 @@ interface Application {
   type: string;
   status: string;
   workflowPhase?: string;
+  clinicalUnit?: string;
   committeeReady: boolean;
   submittedAt?: string;
   createdAt: string;
@@ -191,6 +192,7 @@ export default function StaffDashboard() {
               <tr>
                 <th>Provider</th>
                 <th>Role</th>
+                <th>Unit</th>
                 <th>Phase</th>
                 <th>Status</th>
                 <th>Submitted</th>
@@ -202,6 +204,7 @@ export default function StaffDashboard() {
                 <tr key={app.id}>
                   <td>{app.provider.user.firstName} {app.provider.user.lastName}</td>
                   <td>{app.staffSubtype?.name ?? app.provider.profile?.staffSubtype?.name ?? '—'}</td>
+                  <td>{app.clinicalUnit || '—'}</td>
                   <td>{app.workflowPhase?.replace(/_/g, ' ') ?? '—'}</td>
                   <td>
                     <span className={`badge ${app.committeeReady ? 'badge-success' : 'badge-warning'}`}>
@@ -281,6 +284,12 @@ export default function StaffDashboard() {
               <dd>Dr. {selectedApp.provider.user.firstName} {selectedApp.provider.user.lastName}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Role</dt>
               <dd>{selectedApp.staffSubtype?.name ?? selectedApp.provider.profile?.staffSubtype?.name ?? '—'}</dd>
+              {selectedApp.clinicalUnit && (
+                <>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Clinical Unit</dt>
+                  <dd>{selectedApp.clinicalUnit}</dd>
+                </>
+              )}
               <dt style={{ color: 'var(--color-text-muted)' }}>Phase</dt>
               <dd>{selectedApp.workflowPhase?.replace(/_/g, ' ') ?? '—'}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Status</dt>

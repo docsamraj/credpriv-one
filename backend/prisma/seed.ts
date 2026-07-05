@@ -189,6 +189,40 @@ async function main() {
     },
   });
 
+  const staffUser = await prisma.user.findUnique({ where: { email: 'staff@credpriv.hospital' } });
+  if (staffUser) {
+    await prisma.committeeMember.upsert({
+      where: {
+        committeeId_userId: { committeeId: credCommittee.id, userId: staffUser.id },
+      },
+      update: { role: 'SECRETARY', designation: 'Credentialing Secretary', isActive: true },
+      create: {
+        committeeId: credCommittee.id,
+        userId: staffUser.id,
+        role: 'SECRETARY',
+        designation: 'Credentialing Secretary',
+        engagementStart: new Date('2024-01-01'),
+        engagementEnd: new Date('2026-12-31'),
+      },
+    });
+  }
+
+  const meetingAt = new Date();
+  meetingAt.setDate(meetingAt.getDate() + 7);
+  await prisma.committeeMeeting.upsert({
+    where: { id: 'seed-cred-meeting-1' },
+    update: { scheduledAt: meetingAt, status: 'SCHEDULED' },
+    create: {
+      id: 'seed-cred-meeting-1',
+      committeeId: credCommittee.id,
+      title: 'Monthly Credentialing Review',
+      scheduledAt: meetingAt,
+      location: 'Conference Room A',
+      status: 'SCHEDULED',
+      agenda: 'Review pending privilege requests and new appointments',
+    },
+  });
+
   const providerUser = await prisma.user.upsert({
     where: { email: 'provider@credpriv.hospital' },
     update: {},

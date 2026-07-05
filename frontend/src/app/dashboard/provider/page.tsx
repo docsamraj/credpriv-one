@@ -31,6 +31,13 @@ interface JobDescription {
   items: JobDescriptionItem[];
 }
 
+interface ClinicalUnitOption {
+  id: string;
+  clinicalUnit: string;
+  label: string;
+  title: string;
+}
+
 interface PrivilegeRequest {
   id: string;
   jobDescriptionItemId: string;
@@ -44,6 +51,7 @@ interface Application {
   type: string;
   status: string;
   workflowPhase?: string;
+  clinicalUnit?: string;
   submittedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -107,6 +115,8 @@ export default function ProviderDashboard() {
   const [showNewApp, setShowNewApp] = useState(false);
   const [newCategoryId, setNewCategoryId] = useState('');
   const [newSubtypeId, setNewSubtypeId] = useState('');
+  const [newClinicalUnit, setNewClinicalUnit] = useState('');
+  const [clinicalUnits, setClinicalUnits] = useState<ClinicalUnitOption[]>([]);
   const [privilegeLevels, setPrivilegeLevels] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pendingUpload, setPendingUpload] = useState<{ type: string; name: string } | null>(null);
@@ -144,6 +154,27 @@ export default function ProviderDashboard() {
       api<Application>(`/api/applications/${activeApp.id}`).then(setSelectedApp).catch(console.error);
     }
   }, [activeApp?.id, activeApp?.workflowPhase, selectedApp?.jobDescription]);
+
+  useEffect(() => {
+    if (!newSubtypeId) {
+      setClinicalUnits([]);
+      setNewClinicalUnit('');
+      return;
+    }
+    api<ClinicalUnitOption[]>(`/api/catalog/clinical-units/${newSubtypeId}`)
+      .then((units) => {
+        setClinicalUnits(units);
+        if (units.length === 1) {
+          setNewClinicalUnit(units[0].clinicalUnit);
+        } else {
+          setNewClinicalUnit('');
+        }
+      })
+      .catch(() => {
+        setClinicalUnits([]);
+        setNewClinicalUnit('');
+      });
+  }, [newSubtypeId]);
 
   useEffect(() => {
     const app = selectedApp || activeApp;
@@ -191,6 +222,10 @@ export default function ProviderDashboard() {
       showMessage('error', 'Select your category and role');
       return;
     }
+    if (clinicalUnits.length > 1 && newClinicalUnit === '' && clinicalUnits.some((u) => u.clinicalUnit)) {
+      showMessage('error', 'Select your clinical unit (e.g. Surgery OT or CTVS OT)');
+      return;
+    }
     setActionLoading(true);
     try {
       const app = await api<Application>('/api/applications', {
@@ -199,12 +234,15 @@ export default function ProviderDashboard() {
           type: 'INITIAL_APPOINTMENT',
           staffCategoryId: newCategoryId,
           staffSubtypeId: newSubtypeId,
+          clinicalUnit: newClinicalUnit,
         },
       });
       setApplications((prev) => [app, ...prev]);
       setShowNewApp(false);
       setNewCategoryId('');
       setNewSubtypeId('');
+      setNewClinicalUnit('');
+      setClinicalUnits([]);
       showMessage('success', 'Appointment application created — select role saved');
       openApplication(app);
     } catch (err) {
@@ -333,6 +371,7 @@ export default function ProviderDashboard() {
           {activeApp.staffSubtype && (
             <p style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
               Role: <strong>{activeApp.staffCategory?.name}</strong> — {activeApp.staffSubtype.name}
+              {activeApp.clinicalUnit ? ` · ${activeApp.clinicalUnit}` : ''}
             </p>
           )}
         </div>
@@ -351,11 +390,12 @@ export default function ProviderDashboard() {
           <p style={{ color: 'var(--color-text-muted)' }}>No applications yet. Start a new appointment to begin credentialing.</p>
         ) : (
           <table className="table">
-            <thead><tr><th>Role</th><th>Phase</th><th>Status</th><th>Submitted</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Role</th><th>Unit</th><th>Phase</th><th>Status</th><th>Submitted</th><th>Actions</th></tr></thead>
             <tbody>
               {applications.map((app) => (
                 <tr key={app.id}>
                   <td>{app.staffSubtype?.name ?? '—'}</td>
+                  <td>{app.clinicalUnit || '—'}</td>
                   <td>{app.workflowPhase ? PHASE_LABELS[app.workflowPhase] : '—'}</td>
                   <td><span className={`badge ${STATUS_BADGE[app.status] || 'badge-neutral'}`}>{app.status}</span></td>
                   <td>{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '—'}</td>
@@ -435,6 +475,20 @@ export default function ProviderDashboard() {
                 {selectedSubtypes.map((s) => <option key={s.id} value={s.id}>{s.parentGroup ? `${s.parentGroup} — ` : ''}{s.name}</option>)}
               </select>
             </div>
+            {clinicalUnits.length > 1 && (
+              <div className="form-group">
+                <label>Clinical Unit</label>
+                <select className="form-input" value={newClinicalUnit} onChange={(e) => setNewClinicalUnit(e.target.value)}>
+                  <option value="">Select unit...</option>
+                  {clinicalUnits.map((u) => (
+                    <option key={u.id} value={u.clinicalUnit}>{u.label}{u.clinicalUnit ? '' : ''}</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                  e.g. Surgery OT vs CTVS OT — determines which job description applies.
+                </p>
+              </div>
+            )}
             <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={handleCreateApplication} disabled={actionLoading}>Create Application</button>
           </div>
         </div>
@@ -450,6 +504,12 @@ export default function ProviderDashboard() {
             <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '0.5rem 1rem', fontSize: '0.875rem' }}>
               <dt style={{ color: 'var(--color-text-muted)' }}>Role</dt>
               <dd>{selectedApp.staffSubtype?.name ?? 'Not selected'}</dd>
+              {selectedApp.clinicalUnit && (
+                <>
+                  <dt style={{ color: 'var(--color-text-muted)' }}>Clinical Unit</dt>
+                  <dd>{selectedApp.clinicalUnit}</dd>
+                </>
+              )}
               <dt style={{ color: 'var(--color-text-muted)' }}>Phase</dt>
               <dd>{selectedApp.workflowPhase ? PHASE_LABELS[selectedApp.workflowPhase] : '—'}</dd>
               <dt style={{ color: 'var(--color-text-muted)' }}>Status</dt>

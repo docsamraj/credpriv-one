@@ -64,6 +64,7 @@ router.post(
       staffCategoryId: req.body.staffCategoryId,
       staffSubtypeId: req.body.staffSubtypeId,
       jobDescriptionId: req.body.jobDescriptionId,
+      clinicalUnit: req.body.clinicalUnit,
     });
     success(res, app, 'Application created', 201);
   })

@@ -15,6 +15,7 @@ interface CommitteeApplication {
   id: string;
   workflowPhase: string;
   status: string;
+  clinicalUnit?: string;
   provider: {
     user: { firstName: string; lastName: string };
     profile?: { staffSubtype?: { name: string } };
@@ -28,6 +29,8 @@ interface Meeting {
   id: string;
   title: string;
   scheduledAt: string;
+  status: string;
+  minutesSentAt?: string | null;
   committee: { name: string; type: string };
   reviews: Array<{
     id: string;
@@ -47,11 +50,14 @@ export default function CommitteeDashboard() {
   const [committeeApps, setCommitteeApps] = useState<CommitteeApplication[]>([]);
   const [selectedReview, setSelectedReview] = useState<string | null>(null);
   const [grantApp, setGrantApp] = useState<CommitteeApplication | null>(null);
+  const [momMeetingId, setMomMeetingId] = useState<string | null>(null);
+
+  function reloadMeetings() {
+    api<Meeting[]>('/api/committees/meetings').then(setMeetings).catch(console.error);
+  }
 
   useEffect(() => {
-    api<Meeting[]>('/api/committees/meetings')
-      .then(setMeetings)
-      .catch(console.error);
+    reloadMeetings();
     api<CommitteeApplication[]>('/api/applications?committeeReady=true')
       .then((apps) => setCommitteeApps(apps.filter((a) => a.workflowPhase === 'COMMITTEE_REVIEW')))
       .catch(console.error);
@@ -87,6 +93,7 @@ export default function CommitteeDashboard() {
               <tr>
                 <th>Provider</th>
                 <th>Role</th>
+                <th>Unit</th>
                 <th>Job Description</th>
                 <th>Items</th>
                 <th>Actions</th>
@@ -97,6 +104,7 @@ export default function CommitteeDashboard() {
                 <tr key={app.id}>
                   <td>{app.provider.user.firstName} {app.provider.user.lastName}</td>
                   <td>{app.staffSubtype?.name ?? app.provider.profile?.staffSubtype?.name ?? '—'}</td>
+                  <td>{app.clinicalUnit || '—'}</td>
                   <td>{app.jobDescription?.title ?? '—'}</td>
                   <td>{app.privilegeRequests?.length ?? 0}</td>
                   <td>
@@ -126,8 +134,20 @@ export default function CommitteeDashboard() {
                 <h3>{meeting.title}</h3>
                 <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
                   {meeting.committee.name} · {new Date(meeting.scheduledAt).toLocaleString()}
+                  {meeting.minutesSentAt && (
+                    <span className="badge badge-success" style={{ marginLeft: '0.5rem' }}>MoM Sent</span>
+                  )}
                 </p>
               </div>
+              {!meeting.minutesSentAt && meeting.status !== 'CANCELLED' && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setMomMeetingId(meeting.id)}
+                >
+                  Conclude & Send MoM
+                </button>
+              )}
             </div>
 
             <table className="table">
@@ -180,6 +200,17 @@ export default function CommitteeDashboard() {
             .then((apps) => setCommitteeApps(apps.filter((a) => a.workflowPhase === 'COMMITTEE_REVIEW')))
             .catch(console.error);
         }} />
+      )}
+
+      {momMeetingId && (
+        <MinutesOfMeetingModal
+          meetingId={momMeetingId}
+          onClose={() => setMomMeetingId(null)}
+          onSent={() => {
+            setMomMeetingId(null);
+            reloadMeetings();
+          }}
+        />
       )}
     </div>
   );
@@ -251,6 +282,133 @@ function PrivilegeGrantModal({
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-primary" onClick={submitGrants} disabled={saving}>Confirm Grant</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MinutesOfMeetingModal({
+  meetingId,
+  onClose,
+  onSent,
+}: {
+  meetingId: string;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  interface MomMember {
+    id: string;
+    role: string;
+    designation?: string | null;
+    displayName: string;
+    email: string | null;
+  }
+
+  interface MomMeeting {
+    title: string;
+    scheduledAt: string;
+    minutes?: string | null;
+    committee: { name: string; members: MomMember[] };
+  }
+
+  const [meeting, setMeeting] = useState<MomMeeting | null>(null);
+  const [minutes, setMinutes] = useState('');
+  const [presentIds, setPresentIds] = useState<string[]>([]);
+  const [additionalEmails, setAdditionalEmails] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<MomMeeting>(`/api/committees/meetings/${meetingId}`)
+      .then((m) => {
+        setMeeting(m);
+        if (m.minutes) setMinutes(m.minutes);
+        setPresentIds(m.committee.members.filter((mem) => mem.email).map((mem) => mem.id));
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load meeting'));
+  }, [meetingId]);
+
+  function togglePresent(id: string) {
+    setPresentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  async function submitMom() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api(`/api/committees/meetings/${meetingId}/conclude-minutes`, {
+        method: 'POST',
+        body: {
+          minutes,
+          presentMemberIds: presentIds,
+          additionalEmails: additionalEmails
+            .split(/[,;\n]/)
+            .map((e) => e.trim())
+            .filter(Boolean),
+        },
+      });
+      onSent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send minutes');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={onClose}>
+      <div className="card" style={{ width: '90%', maxWidth: 720, maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ marginBottom: '0.5rem' }}>Minutes of Meeting</h3>
+        {meeting && (
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+            {meeting.committee.name} — {meeting.title} · {new Date(meeting.scheduledAt).toLocaleString()}
+          </p>
+        )}
+        {error && <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem' }}>{error}</p>}
+
+        <div className="form-group">
+          <label>Minutes text</label>
+          <textarea
+            className="form-input"
+            rows={8}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+            placeholder="Record decisions, attendees, and action items..."
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Members present (MoM will be sent to selected members with accounts + additional emails below)</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+            {(meeting?.committee.members || []).map((m) => (
+              <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>
+                <input type="checkbox" checked={presentIds.includes(m.id)} onChange={() => togglePresent(m.id)} />
+                <span>
+                  {m.displayName}
+                  {m.designation ? ` — ${m.designation}` : ''}
+                  {m.email ? ` (${m.email})` : ' (no login — add email below if needed)'}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Additional recipients (comma-separated emails)</label>
+          <input
+            className="form-input"
+            value={additionalEmails}
+            onChange={(e) => setAdditionalEmails(e.target.value)}
+            placeholder="e.g. ceo@hospital.org, medical.director@hospital.org"
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={submitMom} disabled={saving || !minutes.trim() || presentIds.length === 0}>
+            {saving ? 'Sending…' : 'Prepare & Send MoM'}
+          </button>
         </div>
       </div>
     </div>

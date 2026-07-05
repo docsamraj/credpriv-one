@@ -17,6 +17,14 @@ router.get(
 );
 
 router.get(
+  '/clinical-units/:subtypeId',
+  asyncHandler(async (req, res) => {
+    const units = await catalogService.listClinicalUnits(paramId(req.params.subtypeId));
+    success(res, units);
+  })
+);
+
+router.get(
   '/job-descriptions/:subtypeId',
   asyncHandler(async (req, res) => {
     const jd = await catalogService.getJobDescription(

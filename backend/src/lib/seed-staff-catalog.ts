@@ -203,6 +203,35 @@ export async function seedStaffCatalog(prisma: PrismaTx) {
     });
   }
 
+  // OT technicians: separate job descriptions per clinical unit (Surgery OT vs CTVS OT)
+  const otSubtypeId = subtypeIds[TechnicianSubtype.OT];
+  const otTemplate = JOB_DESCRIPTION_TEMPLATES[TechnicianSubtype.OT];
+  if (otSubtypeId && otTemplate) {
+    for (const unit of ['Surgery OT', 'CTVS OT']) {
+      const jd = await prisma.jobDescription.upsert({
+        where: { subtypeId_clinicalUnit: { subtypeId: otSubtypeId, clinicalUnit: unit } },
+        update: { title: `${otTemplate.title} — ${unit}` },
+        create: {
+          categoryId: categoryIds[StaffCategory.TECHNICIAN],
+          subtypeId: otSubtypeId,
+          clinicalUnit: unit,
+          title: `${otTemplate.title} — ${unit}`,
+          description: `OT technician privileges for ${unit}`,
+        },
+      });
+      await prisma.jobDescriptionItem.deleteMany({ where: { jobDescriptionId: jd.id } });
+      await prisma.jobDescriptionItem.createMany({
+        data: otTemplate.items.map((item, i) => ({
+          jobDescriptionId: jd.id,
+          name: item.name,
+          code: item.code,
+          defaultLevel: item.defaultLevel,
+          sortOrder: i + 1,
+        })),
+      });
+    }
+  }
+
   // Required documents per category
   const docSets: { category: StaffCategory; extra: typeof DOCTOR_EXTRA_DOCS }[] = [
     { category: StaffCategory.DOCTOR, extra: DOCTOR_EXTRA_DOCS },

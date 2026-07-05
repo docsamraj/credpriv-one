@@ -119,6 +119,7 @@ model Application {
   currentStage         String?
   staffCategoryId      String?
   staffSubtypeId       String?
+  clinicalUnit         String    @default("")
   jobDescriptionId     String?
   submittedAt          DateTime?
   credentialingCompleteAt DateTime?
@@ -355,16 +356,20 @@ model CommitteeMember {
 }
 
 model CommitteeMeeting {
-  id          String    @id @default(cuid())
-  committeeId String
-  title       String
-  scheduledAt DateTime
-  location    String?
-  status      String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
-  agenda      String?
-  minutes     String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  committeeId          String
+  title                String
+  scheduledAt          DateTime
+  location             String?
+  status               String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  agenda               String?
+  minutes              String?   @db.Text
+  minutesPreparedAt    DateTime?
+  minutesSentAt        DateTime?
+  presentMemberIds     Json      @default("[]")
+  additionalRecipients Json      @default("[]")
+  createdAt            DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   committee Committee         @relation(fields: [committeeId], references: [id], onDelete: Cascade)
   reviews   CommitteeReview[]

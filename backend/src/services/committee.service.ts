@@ -12,9 +12,13 @@ export class CommitteeService {
   }
 
   async getUpcomingMeetings(committeeId?: string) {
+    const since = new Date();
+    since.setDate(since.getDate() - 14);
+
     return prisma.committeeMeeting.findMany({
       where: {
-        scheduledAt: { gte: new Date() },
+        scheduledAt: { gte: since },
+        status: { not: 'CANCELLED' },
         ...(committeeId && { committeeId }),
       },
       include: {

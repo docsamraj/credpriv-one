@@ -81,6 +81,7 @@ export class ApplicationService {
         workflowPhase: WorkflowPhase.APPOINTMENT,
         staffCategoryId: opts?.staffCategoryId,
         staffSubtypeId: opts?.staffSubtypeId,
+        clinicalUnit: (opts?.clinicalUnit || '').trim(),
         jobDescriptionId,
       },
       include: { staffCategory: true, staffSubtype: true, jobDescription: true },

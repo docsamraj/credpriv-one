@@ -4,7 +4,7 @@
 
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci --ignore-scripts && npm run build --workspace=@credpriv/shared && npm run build --workspace=@credpriv/frontend"
+buildCommand = "npm ci --ignore-scripts && npm run build --workspace=@credpriv/shared && NODE_ENV=production npm run build --workspace=@credpriv/frontend"
 
 [deploy]
 startCommand = "npm run start --workspace=@credpriv/frontend"

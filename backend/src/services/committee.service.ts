@@ -5,7 +5,7 @@ import { Request } from 'express';
 import { committeeReviewPacketService } from './committee-review-packet.service';
 import { notificationService } from './notification.service';
 import { dispatchWebhookEvent } from './webhook-dispatch.service';
-import { IntegrationWebhookEvent } from '@credpriv/shared';
+import { IntegrationWebhookEvent, WorkflowPhase } from '@credpriv/shared';
 
 export class CommitteeService {
   async listCommittees() {
@@ -87,14 +87,30 @@ export class CommitteeService {
 
     if (review) {
       let newStatus = review.application.status;
-      if (decisionType === 'APPROVE') newStatus = 'APPROVED';
-      else if (decisionType === 'DENY') newStatus = 'DENIED';
-      else if (decisionType === 'RETURN_FOR_INFO') newStatus = 'NEEDS_INFO';
-      else if (decisionType === 'DEFER') newStatus = 'COMMITTEE';
+      let workflowPhase = review.application.workflowPhase;
+      let currentStage = review.application.currentStage;
+
+      if (decisionType === 'APPROVE') {
+        newStatus = 'APPROVED';
+        workflowPhase = WorkflowPhase.COMPLETE;
+        currentStage = WorkflowPhase.COMPLETE;
+      } else if (decisionType === 'DENY') {
+        newStatus = 'DENIED';
+        workflowPhase = WorkflowPhase.COMPLETE;
+        currentStage = WorkflowPhase.COMPLETE;
+      } else if (decisionType === 'RETURN_FOR_INFO') {
+        newStatus = 'NEEDS_INFO';
+        workflowPhase = WorkflowPhase.DOCUMENT_UPLOAD;
+        currentStage = WorkflowPhase.DOCUMENT_UPLOAD;
+      } else if (decisionType === 'DEFER') {
+        newStatus = 'COMMITTEE';
+        workflowPhase = WorkflowPhase.COMMITTEE_REVIEW;
+        currentStage = WorkflowPhase.COMMITTEE_REVIEW;
+      }
 
       await prisma.application.update({
         where: { id: review.applicationId },
-        data: { status: newStatus },
+        data: { status: newStatus, workflowPhase, currentStage },
       });
 
       await prisma.committeeReview.update({

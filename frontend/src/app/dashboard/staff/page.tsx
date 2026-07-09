@@ -9,6 +9,7 @@ import JobDescriptionsPanel from '@/components/admin/JobDescriptionsPanel';
 import CommitteesPanel from '@/components/admin/CommitteesPanel';
 import BackgroundVerificationPanel from '@/components/staff/BackgroundVerificationPanel';
 import ApplicationDocumentInventory from '@/components/shared/ApplicationDocumentInventory';
+import CredentialsPanel from '@/components/staff/CredentialsPanel';
 
 interface Queues {
   newApplications: number;
@@ -52,7 +53,7 @@ interface DocumentComplianceReport {
 }
 
 export default function StaffDashboard() {
-  const [activeTab, setActiveTab] = useState<'workflow' | 'job-descriptions' | 'committees'>('workflow');
+  const [activeTab, setActiveTab] = useState<'workflow' | 'psv' | 'job-descriptions' | 'committees'>('workflow');
   const [queues, setQueues] = useState<Queues | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,6 +188,13 @@ export default function StaffDashboard() {
         </button>
         <button
           type="button"
+          className={`btn ${activeTab === 'psv' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('psv')}
+        >
+          PSV &amp; Credentials
+        </button>
+        <button
+          type="button"
           className={`btn ${activeTab === 'job-descriptions' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('job-descriptions')}
         >
@@ -202,6 +210,8 @@ export default function StaffDashboard() {
       </div>
 
       {activeTab === 'committees' && <CommitteesPanel />}
+
+      {activeTab === 'psv' && <CredentialsPanel />}
 
       {activeTab === 'job-descriptions' && <JobDescriptionsPanel />}
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, uploadFile, downloadBlob } from '@/lib/api';
 import { PRODUCT_LABELS, allowsMultipleDocumentUploads } from '@credpriv/shared';
 import { FileText, Upload, AlertTriangle, Clock, Check, X, Shield } from 'lucide-react';
+import DocumentLink from '@/components/shared/DocumentLink';
 
 interface StaffSubtype {
   id: string;
@@ -516,7 +517,9 @@ export default function ProviderDashboard() {
                   {files.length > 0 && (
                     <ul style={{ margin: '0.5rem 0 0 1.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                       {files.map((f) => (
-                        <li key={f.id}>{f.name} — {new Date(f.uploadedAt).toLocaleDateString()}</li>
+                        <li key={f.id}>
+                          <DocumentLink id={f.id} name={f.name} /> — {new Date(f.uploadedAt).toLocaleDateString()}
+                        </li>
                       ))}
                     </ul>
                   )}

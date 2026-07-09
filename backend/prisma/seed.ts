@@ -327,6 +327,22 @@ async function main() {
         },
       ],
     });
+
+    const pendingCred = await prisma.credential.findFirst({
+      where: { providerId: provider.id, status: 'PENDING' },
+    });
+    if (pendingCred) {
+      const vrCount = await prisma.verificationRequest.count({ where: { credentialId: pendingCred.id } });
+      if (vrCount === 0) {
+        await prisma.verificationRequest.create({
+          data: {
+            credentialId: pendingCred.id,
+            status: 'PENDING',
+            source: 'Medical Council online registry',
+          },
+        });
+      }
+    }
   }
 
   const appCount = await prisma.application.count({ where: { providerId: provider.id } });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import type { DocumentComplianceReport } from '@credpriv/shared';
+import DocumentLink from '@/components/shared/DocumentLink';
 
 interface Props {
   applicationId: string;
@@ -72,7 +73,7 @@ export default function ApplicationDocumentInventory({ applicationId, compact }:
                   <ul style={{ margin: 0, paddingLeft: '1rem' }}>
                     {item.uploadedFiles.map((f) => (
                       <li key={f.id}>
-                        {f.name}
+                        <DocumentLink id={f.id} name={f.name} />
                         <span style={{ color: 'var(--color-text-muted)' }}> — {new Date(f.uploadedAt).toLocaleDateString()}</span>
                       </li>
                     ))}
@@ -94,7 +95,7 @@ export default function ApplicationDocumentInventory({ applicationId, compact }:
             <tbody>
               {otherFiles.map((d) => (
                 <tr key={d.id}>
-                  <td>{d.name}</td>
+                  <td><DocumentLink id={d.id} name={d.name} /></td>
                   <td>{d.type}</td>
                   <td>{new Date(d.uploadedAt).toLocaleDateString()}</td>
                 </tr>

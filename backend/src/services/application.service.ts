@@ -198,26 +198,8 @@ export class ApplicationService {
   }
 
   async approveDepartmentClearance(id: string, userId: string, req?: Request) {
-    const app = await prisma.application.findUnique({ where: { id } });
-    if (!app) throw new AppError(404, 'Application not found');
-    if (app.workflowPhase !== WorkflowPhase.DEPARTMENT_APPROVAL) {
-      throw new AppError(400, 'Application is not awaiting department approval');
-    }
-    if (await categoryRequiresCommittee(app.staffCategoryId)) {
-      throw new AppError(400, 'Clinical applications use committee review, not department clearance');
-    }
-
-    const fullApp = await prisma.application.findUnique({
-      where: { id },
-      include: { provider: { include: { profile: true } } },
-    });
-    const deptId = fullApp?.provider.profile?.departmentId;
-    if (!deptId) throw new AppError(400, 'Applicant has no department assigned');
-
-    const dept = await prisma.department.findFirst({
-      where: { id: deptId, chairUserId: userId, isActive: true },
-    });
-    if (!dept) throw new AppError(403, 'You are not the department head for this applicant');
+    const { app, department: dept } = await this.assertDepartmentChair(userId, id);
+    const deptId = dept.id;
 
     const updated = await prisma.application.update({
       where: { id },
@@ -240,6 +222,96 @@ export class ApplicationService {
       applicationId: id,
       providerId: app.providerId,
       departmentId: deptId,
+    });
+    return this.getById(id);
+  }
+
+  private async assertDepartmentChair(userId: string, applicationId: string) {
+    const app = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: { provider: { include: { profile: true } } },
+    });
+    if (!app) throw new AppError(404, 'Application not found');
+    if (app.workflowPhase !== WorkflowPhase.DEPARTMENT_APPROVAL) {
+      throw new AppError(400, 'Application is not awaiting department approval');
+    }
+    if (await categoryRequiresCommittee(app.staffCategoryId)) {
+      throw new AppError(400, 'Clinical applications use committee review, not department clearance');
+    }
+
+    const deptId = app.provider.profile?.departmentId;
+    if (!deptId) throw new AppError(400, 'Applicant has no department assigned');
+
+    const dept = await prisma.department.findFirst({
+      where: { id: deptId, chairUserId: userId, isActive: true },
+    });
+    if (!dept) throw new AppError(403, 'You are not the department head for this applicant');
+
+    return { app, department: dept };
+  }
+
+  async returnDepartmentForInfo(id: string, userId: string, comments: string, req?: Request) {
+    const { app, department } = await this.assertDepartmentChair(userId, id);
+
+    const updated = await prisma.application.update({
+      where: { id },
+      data: {
+        status: 'NEEDS_INFO',
+        workflowPhase: WorkflowPhase.DOCUMENT_UPLOAD,
+        currentStage: WorkflowPhase.DOCUMENT_UPLOAD,
+      },
+    });
+
+    await createAuditLog(
+      {
+        action: 'UPDATE',
+        entityType: 'Application',
+        entityId: id,
+        newValue: updated,
+        metadata: { action: 'department_returned_for_info', departmentId: department.id, comments },
+      },
+      req
+    );
+    await notificationService.notifyApplicationStatusChange(
+      id,
+      updated.status,
+      `Department head (${department.name}) returned your application for more information: ${comments}`
+    );
+    return this.getById(id);
+  }
+
+  async rejectDepartmentApplication(id: string, userId: string, rationale: string, req?: Request) {
+    const { app, department } = await this.assertDepartmentChair(userId, id);
+
+    const updated = await prisma.application.update({
+      where: { id },
+      data: {
+        status: 'DENIED',
+        workflowPhase: WorkflowPhase.COMPLETE,
+        currentStage: WorkflowPhase.COMPLETE,
+      },
+    });
+
+    await createAuditLog(
+      {
+        action: 'DENY',
+        entityType: 'Application',
+        entityId: id,
+        newValue: updated,
+        metadata: { action: 'department_rejected', departmentId: department.id, rationale },
+      },
+      req
+    );
+    await notificationService.notifyApplicationStatusChange(
+      id,
+      updated.status,
+      `Department head (${department.name}) did not approve your application: ${rationale}`
+    );
+    await dispatchWebhookEvent(IntegrationWebhookEvent.COMMITTEE_DECISION_RECORDED, {
+      applicationId: id,
+      providerId: app.providerId,
+      decisionType: 'DENY',
+      pathway: 'DEPARTMENT',
     });
     return this.getById(id);
   }

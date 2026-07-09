@@ -42,4 +42,34 @@ router.post(
   })
 );
 
+router.post(
+  '/applications/:applicationId/return-for-info',
+  requirePermission('department.approve'),
+  asyncHandler(async (req, res) => {
+    await departmentService.assertChairForApplication(req.user!.userId, paramId(req.params.applicationId));
+    const app = await applicationService.returnDepartmentForInfo(
+      paramId(req.params.applicationId),
+      req.user!.userId,
+      req.body.comments || req.body.rationale || 'Additional information required',
+      req
+    );
+    success(res, app, 'Application returned to applicant for more information');
+  })
+);
+
+router.post(
+  '/applications/:applicationId/reject',
+  requirePermission('department.approve'),
+  asyncHandler(async (req, res) => {
+    await departmentService.assertChairForApplication(req.user!.userId, paramId(req.params.applicationId));
+    const app = await applicationService.rejectDepartmentApplication(
+      paramId(req.params.applicationId),
+      req.user!.userId,
+      req.body.rationale || req.body.comments || 'Department approval not granted',
+      req
+    );
+    success(res, app, 'Application rejected by department');
+  })
+);
+
 export default router;

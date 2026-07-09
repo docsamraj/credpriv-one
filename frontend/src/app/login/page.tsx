@@ -76,6 +76,10 @@ export default function LoginPage() {
         </form>
 
         <DemoAccounts />
+
+        <p style={{ marginTop: '1rem', fontSize: '0.875rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+          New applicant? <a href="/register" style={{ color: 'var(--color-primary)' }}>Create an account</a>
+        </p>
       </div>
     </div>
   );

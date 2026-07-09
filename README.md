@@ -68,9 +68,23 @@ credpriv-one/
 
 ### Application Lifecycle
 
+**Clinical / allied health** (doctors, nurses, technicians, physiotherapists, etc.):
+
 ```
-Draft → Submitted → Under Verification → Committee → MEC → Board → Approved / Denied
+Appointment → Document Upload → Credentialing → Privilege Request → Committee Review → Complete
 ```
+
+**Non-clinical staff** (HR, housekeeping, admin, etc.):
+
+```
+Appointment → Document Upload → Credentialing → Department Approval → Staff Clearance → Complete
+```
+
+> **Planned (not yet in UI):** MEC and Board escalation tiers, reappointment cycles, OPPE/FPPE monitoring.
+
+### Workflow phases (`WorkflowPhase`)
+
+`APPOINTMENT` · `DOCUMENT_UPLOAD` · `CREDENTIALING` · `PRIVILEGE_REQUEST` · `COMMITTEE_REVIEW` · `DEPARTMENT_APPROVAL` · `STAFF_CLEARANCE` · `COMPLETE`
 
 ## Prerequisites
 
@@ -138,12 +152,22 @@ npm run dev:frontend  # http://localhost:3000
 
 ### Demo Accounts
 
-| Email | Role | Password |
-|-------|------|----------|
-| provider@credpriv.hospital | Provider | Password123! |
-| staff@credpriv.hospital | Credentialing Staff | Password123! |
-| committee@credpriv.hospital | Committee Member | Password123! |
-| admin@credpriv.hospital | System Admin | Password123! |
+Password for all: **Password123!**
+
+| Email | Role |
+|-------|------|
+| `admin@credpriv.hospital` | System Admin |
+| `staff@credpriv.hospital` | Credentialing Staff |
+| `committee@credpriv.hospital` | Committee Chair |
+| `deptchair@credpriv.hospital` | Department Head |
+| `provider@credpriv.hospital` | Doctor (clinical) |
+| `nurse@credpriv.hospital` | Senior Nurse (clinical) |
+| `tech@credpriv.hospital` | OT Technician (clinical) |
+| `allied@credpriv.hospital` | Allied Health (clinical) |
+| `hr@credpriv.hospital` | HR Executive (non-clinical) |
+| `housekeeping@credpriv.hospital` | Housekeeping (non-clinical) |
+
+New applicants can self-register at `/register` (provider accounts only).
 
 ## API Endpoints
 

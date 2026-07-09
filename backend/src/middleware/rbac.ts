@@ -20,6 +20,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'provider.read', 'task.read', 'task.update',
     'committee.mark_ready', 'job_description.manage', 'committee.manage',
     'integration.read', 'integration.export', 'integration.admin',
+    'audit.read',
   ],
   [UserRole.DEPARTMENT_CHAIR]: [
     'application.read', 'provider.read', 'privilege.read', 'document.read',

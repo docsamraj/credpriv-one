@@ -128,6 +128,23 @@ export async function downloadBlob(endpoint: string, filename: string): Promise<
   URL.revokeObjectURL(url);
 }
 
+/** Open a stored document in a new browser tab (inline PDF/image preview). */
+export async function openDocument(documentId: string): Promise<void> {
+  const authToken = getToken();
+  const headers: Record<string, string> = {};
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+  const res = await fetch(`${API_URL}/api/documents/${documentId}/file`, { headers });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text.slice(0, 200) || `Could not open document (${res.status})`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener,noreferrer');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function setUser(user: unknown) {
   localStorage.setItem('user', JSON.stringify(user));
 }

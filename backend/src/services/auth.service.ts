@@ -18,7 +18,8 @@ export class AuthService {
     if (existing) throw new AppError(409, 'Email already registered');
 
     const passwordHash = await bcrypt.hash(data.password, 12);
-    const role = data.role || UserRole.PROVIDER;
+    // Public registration is provider-only; staff roles are provisioned by admins
+    const role = UserRole.PROVIDER;
 
     const user = await prisma.user.create({
       data: {

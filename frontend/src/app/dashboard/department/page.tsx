@@ -34,6 +34,9 @@ export default function DepartmentDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+  const [actionAppId, setActionAppId] = useState<string | null>(null);
+  const [actionType, setActionType] = useState<'return' | 'reject' | null>(null);
+  const [actionComments, setActionComments] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -68,6 +71,52 @@ export default function DepartmentDashboard() {
       loadData();
     } catch (err) {
       showMessage('error', err instanceof Error ? err.message : 'Approval failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleReturnForInfo(applicationId: string) {
+    if (!actionComments.trim()) {
+      showMessage('error', 'Please enter comments for the applicant');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api(`/api/department/applications/${applicationId}/return-for-info`, {
+        method: 'POST',
+        body: { comments: actionComments.trim() },
+      });
+      showMessage('success', 'Application returned to applicant for more information');
+      setActionAppId(null);
+      setActionType(null);
+      setActionComments('');
+      loadData();
+    } catch (err) {
+      showMessage('error', err instanceof Error ? err.message : 'Return failed');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleReject(applicationId: string) {
+    if (!actionComments.trim()) {
+      showMessage('error', 'Please enter a reason for rejection');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api(`/api/department/applications/${applicationId}/reject`, {
+        method: 'POST',
+        body: { rationale: actionComments.trim() },
+      });
+      showMessage('success', 'Application rejected');
+      setActionAppId(null);
+      setActionType(null);
+      setActionComments('');
+      loadData();
+    } catch (err) {
+      showMessage('error', err instanceof Error ? err.message : 'Rejection failed');
     } finally {
       setActionLoading(false);
     }
@@ -141,11 +190,29 @@ export default function DepartmentDashboard() {
                     <button
                       type="button"
                       className="btn btn-primary"
-                      style={{ padding: '0.375rem 0.75rem' }}
+                      style={{ padding: '0.375rem 0.75rem', marginRight: '0.35rem' }}
                       onClick={() => handleApprove(app.id)}
                       disabled={actionLoading}
                     >
                       Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.375rem 0.75rem', marginRight: '0.35rem' }}
+                      onClick={() => { setActionAppId(app.id); setActionType('return'); setActionComments(''); }}
+                      disabled={actionLoading}
+                    >
+                      Return
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.375rem 0.75rem', color: 'var(--color-danger)' }}
+                      onClick={() => { setActionAppId(app.id); setActionType('reject'); setActionComments(''); }}
+                      disabled={actionLoading}
+                    >
+                      Reject
                     </button>
                   </td>
                 </tr>
@@ -162,6 +229,37 @@ export default function DepartmentDashboard() {
           </table>
         )}
       </div>
+
+      {actionAppId && actionType && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ width: '90%', maxWidth: 480 }}>
+            <h3 style={{ marginBottom: '0.75rem' }}>
+              {actionType === 'return' ? 'Return for more information' : 'Reject application'}
+            </h3>
+            <textarea
+              className="form-input"
+              rows={4}
+              placeholder={actionType === 'return' ? 'What should the applicant provide or clarify?' : 'Reason for department rejection'}
+              value={actionComments}
+              onChange={(e) => setActionComments(e.target.value)}
+              style={{ width: '100%', marginBottom: '1rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setActionAppId(null); setActionType(null); setActionComments(''); }}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={actionLoading}
+                onClick={() => actionType === 'return' ? handleReturnForInfo(actionAppId) : handleReject(actionAppId)}
+              >
+                {actionType === 'return' ? 'Send back to applicant' : 'Confirm rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

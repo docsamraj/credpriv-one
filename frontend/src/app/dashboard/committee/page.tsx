@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, downloadBlob } from '@/lib/api';
 import { PRODUCT_LABELS } from '@credpriv/shared';
 import { Download } from 'lucide-react';
+import DocumentLink from '@/components/shared/DocumentLink';
 
 interface PrivilegeRequest {
   id: string;
@@ -447,7 +448,7 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
     };
     flags: Array<{ severity: string; code: string; message: string }>;
     documentCompliance: { complete: boolean; uploadedCount: number; requiredCount: number; missing: Array<{ name: string }> };
-    documents: Array<{ name: string; type: string; uploadedAt: string }>;
+    documents: Array<{ id: string; name: string; type: string; uploadedAt: string }>;
     credentials: Array<{ title: string; type: string; status: string; expiryDate?: string; psv: Array<{ status: string; source?: string }> }>;
     backgroundVerifications: Array<{
       verificationType: string;
@@ -633,7 +634,9 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
                           {item.uploadedFiles && item.uploadedFiles.length > 0 ? (
                             <ul style={{ margin: 0, paddingLeft: '1rem' }}>
                               {item.uploadedFiles.map((f) => (
-                                <li key={f.id}>{f.name} — {new Date(f.uploadedAt).toLocaleDateString()}</li>
+                                <li key={f.id}>
+                                  <DocumentLink id={f.id} name={f.name} /> — {new Date(f.uploadedAt).toLocaleDateString()}
+                                </li>
                               ))}
                             </ul>
                           ) : (
@@ -653,7 +656,11 @@ function ReviewPacketModal({ reviewId, onClose }: { reviewId: string; onClose: (
                   <thead><tr><th>Document</th><th>Type</th><th>Uploaded</th></tr></thead>
                   <tbody>
                     {packet.documents.map((d, i) => (
-                      <tr key={i}><td>{d.name}</td><td>{d.type}</td><td>{new Date(d.uploadedAt).toLocaleDateString()}</td></tr>
+                      <tr key={i}>
+                        <td><DocumentLink id={d.id} name={d.name} /></td>
+                        <td>{d.type}</td>
+                        <td>{new Date(d.uploadedAt).toLocaleDateString()}</td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>

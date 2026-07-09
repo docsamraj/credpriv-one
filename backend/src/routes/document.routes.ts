@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import prisma from '../lib/prisma';
+import { UserRole } from '@credpriv/shared';
 import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { createAuditLog } from '../middleware/audit';
@@ -48,6 +49,40 @@ router.get(
       select: { id: true, name: true, type: true, uploadedAt: true, mimeType: true, fileSize: true },
     });
     success(res, documents);
+  })
+);
+
+router.get(
+  '/:id/file',
+  requirePermission('document.read'),
+  asyncHandler(async (req, res) => {
+    const doc = await prisma.document.findUnique({ where: { id: paramId(req.params.id) } });
+    if (!doc) throw new AppError(404, 'Document not found');
+
+    const roles = req.user!.roles as UserRole[];
+    const isStaff = roles.some((r) =>
+      [
+        UserRole.CREDENTIALING_STAFF,
+        UserRole.COMMITTEE_MEMBER,
+        UserRole.MEC_MEMBER,
+        UserRole.DEPARTMENT_CHAIR,
+        UserRole.SYSTEM_ADMIN,
+        UserRole.ADMINISTRATOR,
+        UserRole.QUALITY_ACCREDITATION,
+      ].includes(r)
+    );
+
+    if (!isStaff) {
+      const providerId = await getProviderIdForUser(req.user!.userId);
+      if (doc.providerId !== providerId) throw new AppError(403, 'Access denied');
+    }
+
+    if (!fs.existsSync(doc.filePath)) throw new AppError(404, 'File not found on server');
+
+    const safeName = doc.name.replace(/[^\w.\-() ]/g, '_');
+    res.setHeader('Content-Type', doc.mimeType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(safeName)}"`);
+    fs.createReadStream(doc.filePath).pipe(res);
   })
 );
 

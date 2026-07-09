@@ -1,5 +1,5 @@
-# Frontend production image — build from REPO ROOT
-FROM node:20-alpine AS builder
+# Frontend production image — build from REPO ROOT (Railway Root Directory = /)
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 ENV NODE_ENV=development
@@ -9,6 +9,7 @@ COPY shared ./shared
 COPY frontend ./frontend
 
 RUN npm ci --ignore-scripts
+RUN npm run build --workspace=@credpriv/shared
 
 WORKDIR /app/frontend
 
@@ -17,14 +18,16 @@ ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
 
 RUN rm -rf .next && npm run build
 
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./.next/static
+COPY --from=builder /app/frontend/public ./public
 
 EXPOSE 3000
 

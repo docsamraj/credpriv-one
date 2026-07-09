@@ -3,6 +3,7 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   // Monorepo: lockfile lives at repo root when Root Directory is /
   outputFileTracingRoot: path.join(__dirname, '..'),
   async rewrites() {

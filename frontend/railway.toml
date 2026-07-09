@@ -1,7 +1,9 @@
-# Config for @credpriv/frontend when Root Directory = frontend
+# Deprecated — use repo root + railway-frontend.toml (see RAILWAY.md)
+# If Railway Root Directory is still "frontend", change it to "/" (repo root).
+
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "Dockerfile.frontend"
 
 [deploy]
 healthcheckPath = "/login"

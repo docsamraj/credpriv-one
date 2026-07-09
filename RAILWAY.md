@@ -15,9 +15,11 @@ If Root Directory is `backend`, the build fails with `cd ../shared: No such file
 
 | Setting | Value |
 |---------|-------|
-| **Root Directory** | `frontend` |
-| **Config file** | `frontend/railway.toml` (auto-detected) |
-| **Builder** | Dockerfile (`frontend/Dockerfile`) |
+| **Root Directory** | `/` (repo root — **NOT** `frontend`) |
+| **Config file** | `railway-frontend.toml` |
+| **Dockerfile** | `Dockerfile.frontend` |
+
+The frontend imports `@credpriv/shared`. If Root Directory is `frontend` only, the Docker build fails because the shared package is not in the build context.
 
 ### Frontend variables
 

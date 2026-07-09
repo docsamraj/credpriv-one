@@ -1,13 +1,18 @@
-# Standalone frontend image — Railway Root Directory = frontend/
+# Monorepo frontend image — Railway must use Root Directory = / (repo root)
+# Config: railway-frontend.toml or Settings → Dockerfile Path = Dockerfile.frontend
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 ENV NODE_ENV=development
 
 COPY package.json package-lock.json ./
-RUN npm ci
+COPY shared ./shared
+COPY frontend ./frontend
 
-COPY . .
+RUN npm ci --ignore-scripts
+RUN npm run build --workspace=@credpriv/shared
+
+WORKDIR /app/frontend
 
 ARG RAILWAY_GIT_COMMIT_SHA=local
 ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
@@ -21,12 +26,10 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/next.config.js ./next.config.js
-RUN mkdir -p ./public
+COPY --from=builder /app/frontend/.next/standalone ./
+COPY --from=builder /app/frontend/.next/static ./.next/static
+COPY --from=builder /app/frontend/public ./public
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

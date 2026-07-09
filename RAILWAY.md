@@ -15,11 +15,13 @@ If Root Directory is `backend`, the build fails with `cd ../shared: No such file
 
 | Setting | Value |
 |---------|-------|
-| **Root Directory** | `/` (repo root — **NOT** `frontend`) |
-| **Config file** | `railway-frontend.toml` |
-| **Dockerfile** | `Dockerfile.frontend` |
+| **Root Directory** | **`/`** (repo root — leave blank or `/`; **NOT** `frontend`) |
+| **Config-as-code** | `railway-frontend.toml` |
+| **Builder** | Nixpacks (recommended) or Dockerfile `Dockerfile.frontend` |
 
-The frontend imports `@credpriv/shared`. If Root Directory is `frontend` only, the Docker build fails because the shared package is not in the build context.
+The frontend imports `@credpriv/shared`. If Root Directory is `frontend`, the build fails because the shared package is missing.
+
+**If build keeps failing:** open **Settings → General → Root Directory** and delete `frontend` so Railway uses the repo root.
 
 ### Frontend variables
 

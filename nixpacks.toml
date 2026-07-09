@@ -1,0 +1,15 @@
+# Nixpacks — Railway Root Directory MUST be / (repo root)
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --ignore-scripts"]
+
+[phases.build]
+cmds = [
+  "npm run build --workspace=@credpriv/shared",
+  "npm run build --workspace=@credpriv/frontend"
+]
+
+[start]
+cmd = "npm run start --workspace=@credpriv/frontend"

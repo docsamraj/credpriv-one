@@ -1,12 +1,4 @@
-# Nixpacks config when Railway Root Directory = frontend/
-[phases.setup]
-nixPkgs = ["nodejs_20"]
-
-[phases.install]
-cmds = ["npm ci --workspace=@credpriv/frontend --ignore-scripts"]
-
+# Do not use — Railway Root Directory for this service must be / (repo root).
+# This file exists only so a misconfigured "frontend" root fails with a clear message.
 [phases.build]
-cmds = ["rm -rf .next", "npm run build"]
-
-[start]
-cmd = "npm start"
+cmds = ["echo 'Railway Root Directory must be / (repo root), not frontend. See RAILWAY.md' && exit 1"]

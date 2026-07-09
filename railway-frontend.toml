@@ -1,12 +1,13 @@
-# Config for @credpriv/frontend — Root Directory MUST be / (repo root)
-# Railway: Settings → Root Directory = / (not frontend)
-# Settings → Config-as-code → railway-frontend.toml
+# @credpriv/frontend — Railway Root Directory MUST be / (repo root)
+# Settings → Root Directory: / (clear "frontend" if set)
+# Settings → Config-as-code: railway-frontend.toml
 
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile.frontend"
+builder = "NIXPACKS"
+buildCommand = "npm ci --ignore-scripts && npm run build --workspace=@credpriv/shared && npm run build --workspace=@credpriv/frontend"
 
 [deploy]
+startCommand = "npm run start --workspace=@credpriv/frontend"
 healthcheckPath = "/login"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"

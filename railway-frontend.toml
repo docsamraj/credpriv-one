@@ -3,11 +3,11 @@
 # Settings → Config-as-code: railway-frontend.toml
 
 [build]
-builder = "NIXPACKS"
-buildCommand = "npm ci --ignore-scripts && npm run build --workspace=@credpriv/shared && NODE_ENV=production npm run build --workspace=@credpriv/frontend"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm run start --workspace=@credpriv/frontend"
+startCommand = "node server.js"
 healthcheckPath = "/login"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"

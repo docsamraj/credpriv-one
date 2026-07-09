@@ -4,14 +4,11 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-COPY frontend ./frontend
 COPY shared ./shared
-COPY backend/package.json ./backend/package.json
+COPY frontend ./frontend
 
-# Remove nested lockfile — causes Next.js workspace root confusion
-RUN rm -f frontend/package-lock.json
-
-RUN npm ci --workspace=@credpriv/frontend --ignore-scripts
+RUN npm ci --ignore-scripts
+RUN npm run build --workspace=@credpriv/shared
 
 WORKDIR /app/frontend
 
@@ -19,22 +16,22 @@ ARG RAILWAY_GIT_COMMIT_SHA=local
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
-# next build must run with NODE_ENV=production
-ENV NODE_ENV=production
-RUN rm -rf .next && npm run build
+# Inline NODE_ENV so Railway service variables cannot override with "development"
+RUN rm -rf .next && NODE_ENV=production npm run build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/frontend ./frontend
-
-WORKDIR /app/frontend
+COPY --from=builder /app/frontend/.next/standalone ./
+COPY --from=builder /app/frontend/.next/static ./.next/static
+COPY --from=builder /app/frontend/public ./public
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

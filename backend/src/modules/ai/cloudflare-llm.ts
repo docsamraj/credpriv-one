@@ -105,3 +105,120 @@ export function heuristicParsePrivileges(text: string): ParsedPrivilegeItem[] {
 
   return items.slice(0, 50);
 }
+
+export interface RoleSuggestion {
+  categoryCode: string;
+  subtypeCode: string;
+  clinicalUnit?: string;
+  confidence: 'high' | 'medium' | 'low';
+  source: 'cloudflare' | 'heuristic';
+  reason: string;
+}
+
+/** Keyword heuristics for Indian hospital JD role detection */
+const ROLE_HINTS: Array<{ subtypeCode: string; categoryCode: string; patterns: RegExp[]; unit?: string }> = [
+  { subtypeCode: 'PERFUSIONIST', categoryCode: 'TECHNICIAN', patterns: [/perfusion/i, /heart[- ]?lung/i, /cardiopulmonary bypass/i] },
+  { subtypeCode: 'OT', categoryCode: 'TECHNICIAN', patterns: [/ot technician/i, /operation theatre tech/i, /operating room tech/i, /\bot tech\b/i], unit: 'Surgery OT' },
+  { subtypeCode: 'CSSD', categoryCode: 'TECHNICIAN', patterns: [/cssd/i, /central sterile/i, /sterile supply/i] },
+  { subtypeCode: 'CATHLAB', categoryCode: 'TECHNICIAN', patterns: [/cath\s*lab/i, /catheterization lab/i] },
+  { subtypeCode: 'ICU', categoryCode: 'TECHNICIAN', patterns: [/\bicu tech/i, /intensive care.*tech/i] },
+  { subtypeCode: 'CCU', categoryCode: 'TECHNICIAN', patterns: [/\bccu tech/i, /coronary care.*tech/i] },
+  { subtypeCode: 'PHYSIOTHERAPIST', categoryCode: 'ALLIED_HEALTH', patterns: [/physiotherap/i, /\bpt\b.*rehab/i, /physical therap/i] },
+  { subtypeCode: 'PHARMACIST', categoryCode: 'ALLIED_HEALTH', patterns: [/pharmacist/i, /pharmacy/i] },
+  { subtypeCode: 'RADIOGRAPHER', categoryCode: 'ALLIED_HEALTH', patterns: [/radiograph/i, /x[- ]?ray tech/i, /imaging tech/i] },
+  { subtypeCode: 'DIETICIAN', categoryCode: 'ALLIED_HEALTH', patterns: [/dietician/i, /dietitian/i, /clinical nutrition/i] },
+  { subtypeCode: 'RESPIRATORY_THERAPIST', categoryCode: 'ALLIED_HEALTH', patterns: [/respiratory therap/i] },
+  { subtypeCode: 'SPEECH_THERAPIST', categoryCode: 'ALLIED_HEALTH', patterns: [/speech therap/i, /speech.?language/i] },
+  { subtypeCode: 'SENIOR_NURSE', categoryCode: 'NURSE', patterns: [/senior nurse/i, /staff nurse/i, /nursing officer/i, /\bgnm\b/i, /\bbsc nursing\b/i] },
+  { subtypeCode: 'FRESHER_NURSE', categoryCode: 'NURSE', patterns: [/fresher nurse/i, /junior nurse/i, /trainee nurse/i] },
+  { subtypeCode: 'FULL_TIME_CONSULTANT', categoryCode: 'DOCTOR', patterns: [/consultant/i, /\bmbbs\b/i, /\bmd\b/i, /\bms\b/i, /physician/i, /surgeon/i] },
+  { subtypeCode: 'RMO', categoryCode: 'DOCTOR', patterns: [/\brmo\b/i, /resident medical/i] },
+  { subtypeCode: 'HR_EXECUTIVE', categoryCode: 'HR', patterns: [/hr executive/i, /human resource/i, /\bhr\b.*recruit/i] },
+  { subtypeCode: 'HR_MANAGER', categoryCode: 'HR', patterns: [/hr manager/i, /head of hr/i] },
+  { subtypeCode: 'HOUSEKEEPING_STAFF', categoryCode: 'HOUSEKEEPING', patterns: [/housekeeping/i, /sanitation staff/i] },
+  { subtypeCode: 'WARD_ATTENDANT', categoryCode: 'HOUSEKEEPING', patterns: [/ward (boy|attendant|ayah)/i] },
+  { subtypeCode: 'SECURITY_GUARD', categoryCode: 'SECURITY', patterns: [/security guard/i, /security staff/i] },
+  { subtypeCode: 'IT_SUPPORT', categoryCode: 'IT', patterns: [/it support/i, /helpdesk/i, /desktop support/i] },
+  { subtypeCode: 'BIOMEDICAL_ENGINEER', categoryCode: 'ENGINEERING', patterns: [/biomedical/i] },
+  { subtypeCode: 'ACCOUNTANT', categoryCode: 'FINANCE', patterns: [/accountant/i, /accounts executive/i] },
+  { subtypeCode: 'BILLING_EXECUTIVE', categoryCode: 'FINANCE', patterns: [/billing/i, /tpa/i] },
+  { subtypeCode: 'ADMIN_OFFICER', categoryCode: 'ADMINISTRATIVE', patterns: [/administrative officer/i, /admin officer/i] },
+  { subtypeCode: 'FRONT_DESK', categoryCode: 'ADMINISTRATIVE', patterns: [/front desk/i, /reception/i] },
+  { subtypeCode: 'STORE_KEEPER', categoryCode: 'STORES', patterns: [/store keeper/i, /stores/i, /inventory/i] },
+  { subtypeCode: 'KITCHEN_STAFF', categoryCode: 'FOOD_SERVICES', patterns: [/kitchen staff/i, /cook\b/i, /food service/i] },
+];
+
+function detectClinicalUnit(text: string): string | undefined {
+  if (/ctvs|cardio.?thoracic|cardiac surgery ot/i.test(text)) return 'CTVS OT';
+  if (/surgery ot|general surgery ot|main ot/i.test(text)) return 'Surgery OT';
+  if (/cssd/i.test(text)) return 'CSSD';
+  if (/cath\s*lab/i.test(text)) return 'Cath Lab';
+  if (/\bicu\b/i.test(text)) return 'ICU';
+  if (/\bccu\b/i.test(text)) return 'CCU';
+  return undefined;
+}
+
+export function heuristicSuggestRole(text: string): RoleSuggestion | null {
+  const sample = text.slice(0, 8000);
+  for (const hint of ROLE_HINTS) {
+    if (hint.patterns.some((p) => p.test(sample))) {
+      const unit = detectClinicalUnit(sample) || hint.unit;
+      return {
+        categoryCode: hint.categoryCode,
+        subtypeCode: hint.subtypeCode,
+        clinicalUnit: unit,
+        confidence: 'medium',
+        source: 'heuristic',
+        reason: `Matched keywords for ${hint.subtypeCode.replace(/_/g, ' ').toLowerCase()}`,
+      };
+    }
+  }
+  return null;
+}
+
+export async function llmSuggestRole(
+  text: string,
+  catalogLines: string[]
+): Promise<RoleSuggestion | null> {
+  const raw = await callCloudflareChat([
+    {
+      role: 'system',
+      content:
+        'You map hospital job descriptions to a staff taxonomy. Respond with a single JSON object only.',
+    },
+    {
+      role: 'user',
+      content: `Given this job description, pick the best matching staff category and role from the catalog.
+
+Catalog (categoryCode | subtypeCode | name):
+${catalogLines.join('\n')}
+
+Return ONLY JSON:
+{"categoryCode":"...","subtypeCode":"...","clinicalUnit":"optional e.g. CTVS OT","confidence":"high|medium|low","reason":"short"}
+
+Job description:
+---
+${text.slice(0, 8000)}
+---`,
+    },
+  ]);
+
+  if (!raw) return null;
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[0]) as Record<string, string>;
+    if (!parsed.categoryCode || !parsed.subtypeCode) return null;
+    const conf = String(parsed.confidence || 'medium').toLowerCase();
+    return {
+      categoryCode: String(parsed.categoryCode).toUpperCase(),
+      subtypeCode: String(parsed.subtypeCode).toUpperCase(),
+      clinicalUnit: parsed.clinicalUnit?.trim() || detectClinicalUnit(text),
+      confidence: conf === 'high' || conf === 'low' ? conf : 'medium',
+      source: 'cloudflare',
+      reason: parsed.reason || 'Suggested by AI from job description text',
+    };
+  } catch {
+    return null;
+  }
+}

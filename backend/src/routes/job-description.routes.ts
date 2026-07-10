@@ -66,14 +66,49 @@ router.post(
   asyncHandler(async (req, res) => {
     if (!req.file) throw new AppError(400, 'No file uploaded');
 
-    const subtypeId = req.body.staffSubtypeId as string;
-    if (!subtypeId) throw new AppError(400, 'staffSubtypeId is required');
+    const subtypeId = (req.body.staffSubtypeId as string | undefined)?.trim();
+    let subtype =
+      subtypeId
+        ? await prisma.staffSubtype.findUnique({
+            where: { id: subtypeId },
+            include: { category: true },
+          })
+        : null;
 
-    const subtype = await prisma.staffSubtype.findUnique({
-      where: { id: subtypeId },
-      include: { category: true },
-    });
-    if (!subtype) throw new AppError(404, 'Staff role not found');
+    let appliedSuggestion = false;
+
+    // If no role selected, detect from document text first
+    if (!subtype) {
+      const { extractTextFromFile } = await import('../modules/ai/document-text');
+      const text = await extractTextFromFile(req.file.path, req.file.mimetype);
+      if (!text.trim()) {
+        throw new AppError(400, 'Could not extract text from the uploaded file. Try a text-based PDF or DOCX.');
+      }
+      const suggestion = await jobDescriptionParserService.suggestRoleFromText(text);
+      if (suggestion) {
+        const suggested = await prisma.staffSubtype.findFirst({
+          where: {
+            code: suggestion.subtypeCode,
+            category: { code: suggestion.categoryCode },
+          },
+          include: { category: true },
+        });
+        if (suggested) {
+          subtype = suggested;
+          appliedSuggestion = true;
+          if (!req.body.clinicalUnit && suggestion.clinicalUnit) {
+            req.body.clinicalUnit = suggestion.clinicalUnit;
+          }
+        }
+      }
+    }
+
+    if (!subtype) {
+      throw new AppError(
+        400,
+        'Could not detect staff role from the document. Select category and role, then upload again.'
+      );
+    }
 
     const result = await jobDescriptionParserService.parseUploadedFile({
       filePath: req.file.path,
@@ -83,6 +118,7 @@ router.post(
       categoryName: subtype.category.name,
       clinicalUnit: req.body.clinicalUnit as string | undefined,
       titleHint: req.body.title as string | undefined,
+      suggestRole: true,
     });
 
     success(res, {
@@ -96,6 +132,13 @@ router.post(
       sourceMimeType: req.file.mimetype,
       staffSubtypeId: subtype.id,
       staffCategoryId: subtype.categoryId,
+      suggestedCategoryCode: result.suggestedCategoryCode,
+      suggestedSubtypeCode: result.suggestedSubtypeCode,
+      suggestedClinicalUnit: result.suggestedClinicalUnit,
+      suggestionConfidence: result.suggestionConfidence,
+      suggestionSource: result.suggestionSource,
+      suggestionReason: result.suggestionReason,
+      appliedSuggestion,
     });
   })
 );

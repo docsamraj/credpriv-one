@@ -1,6 +1,13 @@
-import { JobDescriptionParseResult, ParsedPrivilegeItem } from '@credpriv/shared';
+import { JobDescriptionParseResult, ParsedPrivilegeItem, STAFF_SUBTYPES } from '@credpriv/shared';
 import { extractTextFromFile } from './document-text';
-import { callCloudflareChat, heuristicParsePrivileges, parsePrivilegeJsonFromLlm } from './cloudflare-llm';
+import {
+  callCloudflareChat,
+  heuristicParsePrivileges,
+  heuristicSuggestRole,
+  llmSuggestRole,
+  parsePrivilegeJsonFromLlm,
+  RoleSuggestion,
+} from './cloudflare-llm';
 
 function buildPrompt(
   text: string,
@@ -29,7 +36,37 @@ ${text.slice(0, 12000)}
 ---`;
 }
 
+function catalogLines(): string[] {
+  return STAFF_SUBTYPES.map(
+    (s) => `${s.category} | ${s.code} | ${s.name}${s.parentGroup ? ` (${s.parentGroup})` : ''}`
+  );
+}
+
+function resolveSuggestion(suggestion: RoleSuggestion | null): RoleSuggestion | null {
+  if (!suggestion) return null;
+  const match = STAFF_SUBTYPES.find(
+    (s) => s.code === suggestion.subtypeCode && s.category === suggestion.categoryCode
+  );
+  if (match) return suggestion;
+  const bySubtype = STAFF_SUBTYPES.find((s) => s.code === suggestion.subtypeCode);
+  if (bySubtype) {
+    return {
+      ...suggestion,
+      categoryCode: bySubtype.category,
+      subtypeCode: bySubtype.code,
+    };
+  }
+  return null;
+}
+
 export class JobDescriptionParserService {
+  async suggestRoleFromText(extractedText: string): Promise<RoleSuggestion | null> {
+    const llm = await llmSuggestRole(extractedText, catalogLines());
+    const resolvedLlm = resolveSuggestion(llm);
+    if (resolvedLlm) return resolvedLlm;
+    return resolveSuggestion(heuristicSuggestRole(extractedText));
+  }
+
   async parseUploadedFile(opts: {
     filePath: string;
     mimeType?: string;
@@ -38,13 +75,22 @@ export class JobDescriptionParserService {
     categoryName: string;
     clinicalUnit?: string;
     titleHint?: string;
-  }): Promise<JobDescriptionParseResult & { extractedText: string }> {
+    /** When true, also infer category/role from text */
+    suggestRole?: boolean;
+  }): Promise<JobDescriptionParseResult & { extractedText: string; roleSuggestion: RoleSuggestion | null }> {
     const extractedText = await extractTextFromFile(opts.filePath, opts.mimeType);
     if (!extractedText.trim()) {
       throw new Error('Could not extract text from the uploaded file. Try a text-based PDF or DOCX.');
     }
 
-    const clinicalUnit = opts.clinicalUnit?.trim() || '';
+    const roleSuggestion =
+      opts.suggestRole !== false ? await this.suggestRoleFromText(extractedText) : null;
+
+    const clinicalUnit =
+      opts.clinicalUnit?.trim() ||
+      roleSuggestion?.clinicalUnit ||
+      '';
+
     let items: ParsedPrivilegeItem[] = [];
     let parsedBy: JobDescriptionParseResult['parsedBy'] = 'heuristic';
 
@@ -81,6 +127,13 @@ export class JobDescriptionParserService {
       extractedTextPreview: extractedText.slice(0, 2000),
       extractedText,
       parsedBy,
+      suggestedCategoryCode: roleSuggestion?.categoryCode,
+      suggestedSubtypeCode: roleSuggestion?.subtypeCode,
+      suggestedClinicalUnit: roleSuggestion?.clinicalUnit,
+      suggestionConfidence: roleSuggestion?.confidence,
+      suggestionSource: roleSuggestion?.source,
+      suggestionReason: roleSuggestion?.reason,
+      roleSuggestion,
     };
   }
 }

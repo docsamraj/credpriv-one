@@ -61,6 +61,13 @@ interface ParseResponse {
   sourceMimeType: string;
   staffSubtypeId: string;
   staffCategoryId: string;
+  suggestedCategoryCode?: string;
+  suggestedSubtypeCode?: string;
+  suggestedClinicalUnit?: string;
+  suggestionConfidence?: 'high' | 'medium' | 'low';
+  suggestionSource?: 'cloudflare' | 'heuristic';
+  suggestionReason?: string;
+  appliedSuggestion?: boolean;
 }
 
 const LEVELS = [
@@ -188,25 +195,41 @@ export default function JobDescriptionsPanel() {
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || !subtypeId) {
-      showMsg('error', 'Select category and role before uploading');
-      return;
-    }
+    if (!file) return;
 
     setLoading(true);
     try {
-      const result = await uploadFile<ParseResponse>('/api/job-descriptions/parse', file, {
-        staffSubtypeId: subtypeId,
-        clinicalUnit,
-        title,
-      });
+      const fields: Record<string, string> = {};
+      if (subtypeId) fields.staffSubtypeId = subtypeId;
+      if (clinicalUnit) fields.clinicalUnit = clinicalUnit;
+      if (title) fields.title = title;
+
+      const result = await uploadFile<ParseResponse>('/api/job-descriptions/parse', file, fields);
       setParseMeta(result);
       setItems(result.items);
       setTitle(result.title);
       if (result.clinicalUnit) setClinicalUnit(result.clinicalUnit);
+
+      // Auto-fill category / role from parse (selected or AI-detected)
+      setCategoryId(result.staffCategoryId);
+      setSubtypeId(result.staffSubtypeId);
+
       setPreview(result.extractedTextPreview);
       setParsedBy(result.parsedBy);
-      showMsg('success', `Parsed ${result.items.length} privilege items (${result.parsedBy})`);
+
+      const catName = categories.find((c) => c.id === result.staffCategoryId)?.name;
+      const roleName = categories
+        .flatMap((c) => c.subtypes.map((s) => ({ ...s, catId: c.id })))
+        .find((s) => s.id === result.staffSubtypeId)?.name;
+
+      if (result.appliedSuggestion) {
+        showMsg(
+          'success',
+          `Detected ${catName || 'category'} → ${roleName || 'role'}${result.clinicalUnit ? ` (${result.clinicalUnit})` : ''} and parsed ${result.items.length} privileges`
+        );
+      } else {
+        showMsg('success', `Parsed ${result.items.length} privilege items (${result.parsedBy})`);
+      }
     } catch (err) {
       showMsg('error', err instanceof Error ? err.message : 'Parse failed');
     } finally {
@@ -227,12 +250,12 @@ export default function JobDescriptionsPanel() {
   }
 
   async function handlePublish() {
-    if (!parseMeta && !subtypeId) {
+    const catId = categoryId || parseMeta?.staffCategoryId;
+    const subId = subtypeId || parseMeta?.staffSubtypeId;
+    if (!parseMeta && !subId) {
       showMsg('error', 'Upload and parse a job description first');
       return;
     }
-    const catId = parseMeta?.staffCategoryId || categoryId;
-    const subId = parseMeta?.staffSubtypeId || subtypeId;
     if (!catId || !subId || !title) {
       showMsg('error', 'Category, role, and title are required');
       return;
@@ -251,14 +274,16 @@ export default function JobDescriptionsPanel() {
           sourceFileName: parseMeta?.sourceFileName,
           sourceFilePath: parseMeta?.sourceFilePath,
           sourceMimeType: parseMeta?.sourceMimeType,
-          extractedTextPreview: preview,
+          extractedTextPreview: parseMeta?.extractedTextPreview,
         },
       });
       showMsg('success', 'Job description published — applicants will see this privilege matrix');
       setItems([]);
       setParseMeta(null);
       setPreview('');
-      await load();
+      setParsedBy('');
+      setTitle('');
+      load();
     } catch (err) {
       showMsg('error', err instanceof Error ? err.message : 'Publish failed');
     } finally {
@@ -327,22 +352,23 @@ export default function JobDescriptionsPanel() {
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '0.5rem' }}>Upload Job Description</h3>
         <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Upload a Word, PDF, or Excel job description. AI extracts privilege line items (Full / Under Supervision / None) for committee credentialing.
-          Set <strong>Clinical Unit</strong> for context-specific roles (e.g. CTVS OT vs Surgery OT).
+          Upload a Word, PDF, or Excel job description. The system detects the staff category and role from the text
+          (or uses your selection), then extracts privilege line items (Full / Under Supervision / None).
+          Set <strong>Clinical Unit</strong> for unit-specific roles (e.g. CTVS OT vs Surgery OT), or leave blank to auto-detect.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
           <div className="form-group">
-            <label>Category</label>
+            <label>Category <span style={{ color: 'var(--color-text-muted)', fontWeight: 'normal' }}>(optional — auto-detect)</span></label>
             <select className="form-input" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubtypeId(''); }} disabled={loadingCatalog || categories.length === 0}>
-              <option value="">{loadingCatalog ? 'Loading...' : 'Select...'}</option>
+              <option value="">{loadingCatalog ? 'Loading...' : 'Auto-detect from JD'}</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div className="form-group">
-            <label>Role</label>
+            <label>Role <span style={{ color: 'var(--color-text-muted)', fontWeight: 'normal' }}>(optional)</span></label>
             <select className="form-input" value={subtypeId} onChange={(e) => setSubtypeId(e.target.value)} disabled={!categoryId}>
-              <option value="">Select...</option>
+              <option value="">Auto-detect from JD</option>
               {subtypes.map((s) => (
                 <option key={s.id} value={s.id}>{s.parentGroup ? `${s.parentGroup} — ` : ''}{s.name}</option>
               ))}
@@ -364,15 +390,32 @@ export default function JobDescriptionsPanel() {
           type="button"
           className="btn btn-primary"
           style={{ marginTop: '1rem' }}
-          disabled={loading || !subtypeId}
+          disabled={loading}
           onClick={() => fileRef.current?.click()}
         >
           <Upload size={16} /> Upload &amp; Parse with AI
         </button>
 
+        {parseMeta?.appliedSuggestion && (
+          <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: 'var(--color-bg)', borderRadius: 8, fontSize: '0.875rem', border: '1px solid var(--color-border)' }}>
+            <Sparkles size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+            <strong>Auto-detected:</strong>{' '}
+            {categories.find((c) => c.id === parseMeta.staffCategoryId)?.name || parseMeta.suggestedCategoryCode}
+            {' → '}
+            {categories.find((c) => c.id === parseMeta.staffCategoryId)?.subtypes.find((s) => s.id === parseMeta.staffSubtypeId)?.name || parseMeta.suggestedSubtypeCode}
+            {parseMeta.clinicalUnit ? ` · ${parseMeta.clinicalUnit}` : ''}
+            {parseMeta.suggestionReason ? ` — ${parseMeta.suggestionReason}` : ''}
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.35rem' }}>
+              Confidence: {parseMeta.suggestionConfidence || 'medium'}
+              {parseMeta.suggestionSource ? ` · via ${parseMeta.suggestionSource}` : ''}
+              {' · '}Change the dropdowns above before publishing if this is wrong.
+            </div>
+          </div>
+        )}
+
         {parsedBy && (
           <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-            <Sparkles size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Parsed by: {parsedBy === 'cloudflare' ? 'Cloudflare AI' : 'built-in rules (set CLOUDFLARE_API_TOKEN for smarter parsing)'}
+            <Sparkles size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Privileges parsed by: {parsedBy === 'cloudflare' ? 'Cloudflare AI' : 'built-in rules (set CLOUDFLARE_API_TOKEN for smarter parsing)'}
           </p>
         )}
       </div>

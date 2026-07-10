@@ -241,6 +241,13 @@ export interface JobDescriptionParseResult {
   items: ParsedPrivilegeItem[];
   extractedTextPreview: string;
   parsedBy: 'cloudflare' | 'heuristic';
+  /** Suggested taxonomy match from JD text (codes from shared catalog) */
+  suggestedCategoryCode?: string;
+  suggestedSubtypeCode?: string;
+  suggestedClinicalUnit?: string;
+  suggestionConfidence?: 'high' | 'medium' | 'low';
+  suggestionSource?: 'cloudflare' | 'heuristic';
+  suggestionReason?: string;
 }
 
 export interface OcrExtractionResult {

@@ -18,8 +18,7 @@ ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
-# Inline NODE_ENV so Railway service variables cannot override with "development"
-RUN rm -rf .next && NODE_ENV=production npm run build
+RUN rm -rf .next && npm run build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app

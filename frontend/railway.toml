@@ -1,11 +1,12 @@
-# Deprecated — use repo root + railway-frontend.toml (see RAILWAY.md)
-# If Railway Root Directory is still "frontend", change it to "/" (repo root).
+# Deprecated — Railway Root Directory MUST be / (repo root), not frontend.
+# Use railway-frontend.toml at repo root instead.
 
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile.frontend"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/login"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
+startCommand = "node server.js"

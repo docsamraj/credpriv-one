@@ -52,11 +52,18 @@ Public URL: `https://credpriv-production.up.railway.app`
 ```env
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 NODE_ENV=production
-JWT_SECRET=your-secret-here
+JWT_SECRET=your-secret-here-min-16-chars
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=https://credpriv-production.up.railway.app
 UPLOAD_DIR=./uploads
+DOCUMENT_ENCRYPTION_KEY=generate-64-char-hex
+PRIVACY_NOTICE_VERSION=2026-07-10
 ```
+
+Set `DOCUMENT_ENCRYPTION_KEY` before uploading real Aadhaar/PAN documents. Generate with:
+`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+On the **frontend**, do **not** set `NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS` in production (demo passwords stay hidden).
 
 ## After deploy
 

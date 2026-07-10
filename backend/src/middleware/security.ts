@@ -47,10 +47,11 @@ export function integrationAuth(req: Request, res: Response, next: NextFunction)
   const provided = req.headers['x-api-key'];
 
   if (configuredKey && typeof provided === 'string' && provided === configuredKey) {
+    // Scoped role — NOT SYSTEM_ADMIN. Only integration.* (+ read) permissions.
     req.user = {
       userId: 'integration-service',
       email: 'integration@credpriv.system',
-      roles: [UserRole.SYSTEM_ADMIN],
+      roles: [UserRole.CREDENTIALING_STAFF],
     };
     return next();
   }

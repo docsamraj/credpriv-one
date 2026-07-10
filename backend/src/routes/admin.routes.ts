@@ -82,7 +82,10 @@ router.get(
       include: { system: { select: { code: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     });
-    success(res, subs);
+    success(
+      res,
+      subs.map((s) => ({ ...s, secretHash: s.secretHash ? '[configured]' : null }))
+    );
   })
 );
 
@@ -98,11 +101,13 @@ router.post(
         systemId: system.id,
         event: req.body.event,
         targetUrl: req.body.targetUrl,
-        secretHash: req.body.secret || null,
+        secretHash: req.body.secret
+          ? (await import('../utils/file-crypto')).encryptSecret(String(req.body.secret))
+          : null,
         isActive: req.body.isActive !== false,
       },
     });
-    success(res, sub, 'Webhook subscription created', 201);
+    success(res, { ...sub, secretHash: sub.secretHash ? '[redacted]' : null }, 'Webhook subscription created', 201);
   })
 );
 

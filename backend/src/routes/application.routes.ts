@@ -75,7 +75,10 @@ router.get(
   '/:id/document-compliance',
   requirePermission('application.read'),
   asyncHandler(async (req, res) => {
-    const report = await documentComplianceService.getCompliance(paramId(req.params.id));
+    const id = paramId(req.params.id);
+    const { assertCanAccessApplication } = await import('../utils/access');
+    await assertCanAccessApplication(req, id);
+    const report = await documentComplianceService.getCompliance(id);
     success(res, report);
   })
 );
@@ -84,7 +87,10 @@ router.get(
   '/:id',
   requirePermission('application.read'),
   asyncHandler(async (req, res) => {
-    const app = await applicationService.getById(paramId(req.params.id));
+    const id = paramId(req.params.id);
+    const { assertCanAccessApplication } = await import('../utils/access');
+    await assertCanAccessApplication(req, id);
+    const app = await applicationService.getById(id);
     success(res, app);
   })
 );
@@ -93,7 +99,10 @@ router.post(
   '/:id/submit',
   requirePermission('application.update'),
   asyncHandler(async (req, res) => {
-    const app = await applicationService.submit(paramId(req.params.id), req);
+    const id = paramId(req.params.id);
+    const { assertCanAccessApplication } = await import('../utils/access');
+    await assertCanAccessApplication(req, id);
+    const app = await applicationService.submit(id, req);
     success(res, app, 'Application submitted');
   })
 );
@@ -120,10 +129,10 @@ router.put(
   '/:id/privilege-requests',
   requirePermission('application.update'),
   asyncHandler(async (req, res) => {
-    const app = await applicationService.savePrivilegeRequests(
-      paramId(req.params.id),
-      req.body.requests || []
-    );
+    const id = paramId(req.params.id);
+    const { assertCanAccessApplication } = await import('../utils/access');
+    await assertCanAccessApplication(req, id);
+    const app = await applicationService.savePrivilegeRequests(id, req.body.requests || []);
     success(res, app, 'Privilege requests saved');
   })
 );
@@ -132,7 +141,10 @@ router.post(
   '/:id/submit-privileges',
   requirePermission('application.update'),
   asyncHandler(async (req, res) => {
-    const app = await applicationService.submitPrivileges(paramId(req.params.id), req);
+    const id = paramId(req.params.id);
+    const { assertCanAccessApplication } = await import('../utils/access');
+    await assertCanAccessApplication(req, id);
+    const app = await applicationService.submitPrivileges(id, req);
     success(res, app, 'Privileges submitted for committee review');
   })
 );

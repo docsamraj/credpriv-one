@@ -19,6 +19,12 @@ model User {
   firstName     String
   lastName      String
   isActive      Boolean  @default(true)
+  /// DPDP — privacy notice / consent at registration or first login
+  privacyNoticeAccepted Boolean @default(false)
+  consentAt     DateTime?
+  consentVersion String?
+  erasureRequestedAt DateTime?
+  erasureCompletedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -187,6 +193,7 @@ model Document {
   filePath     String
   mimeType     String?
   fileSize     Int?
+  isEncrypted  Boolean  @default(false)
   ocrData      Json?    // Extracted OCR fields
   uploadedAt   DateTime @default(now())
   createdAt    DateTime @default(now())

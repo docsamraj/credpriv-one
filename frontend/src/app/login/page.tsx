@@ -77,6 +77,12 @@ export default function LoginPage() {
 
         <DemoAccounts />
 
+        {process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS === 'true' && (
+          <p style={{ marginTop: '0.5rem', fontSize: '0.7rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+            Demo accounts are enabled for this environment.
+          </p>
+        )}
+
         <p style={{ marginTop: '1rem', fontSize: '0.875rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
           New applicant? <a href="/register" style={{ color: 'var(--color-primary)' }}>Create an account</a>
         </p>

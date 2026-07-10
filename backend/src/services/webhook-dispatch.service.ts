@@ -22,7 +22,9 @@ export async function dispatchWebhookEvent(
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (sub.secretHash) {
-        headers['X-CredPriv-Signature'] = crypto.createHmac('sha256', sub.secretHash).update(body).digest('hex');
+        const { decryptSecret } = await import('../utils/file-crypto');
+        const secret = decryptSecret(sub.secretHash);
+        headers['X-CredPriv-Signature'] = crypto.createHmac('sha256', secret).update(body).digest('hex');
       }
 
       const res = await fetch(sub.targetUrl, { method: 'POST', headers, body });

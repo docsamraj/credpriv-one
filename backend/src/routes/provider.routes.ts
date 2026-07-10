@@ -27,7 +27,10 @@ router.get(
   '/:id',
   requirePermission('provider.read'),
   asyncHandler(async (req, res) => {
-    const provider = await providerService.getById(paramId(req.params.id));
+    const id = paramId(req.params.id);
+    const { assertCanAccessProvider } = await import('../utils/access');
+    await assertCanAccessProvider(req, id);
+    const provider = await providerService.getById(id);
     success(res, provider);
   })
 );
@@ -36,7 +39,10 @@ router.patch(
   '/:id/profile',
   requirePermission('profile.update'),
   asyncHandler(async (req, res) => {
-    const profile = await providerService.updateProfile(paramId(req.params.id), req.body, req);
+    const id = paramId(req.params.id);
+    const { assertCanAccessProvider } = await import('../utils/access');
+    await assertCanAccessProvider(req, id);
+    const profile = await providerService.updateProfile(id, req.body, req);
     success(res, profile);
   })
 );

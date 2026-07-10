@@ -5,6 +5,7 @@ import { api, uploadFile, downloadBlob } from '@/lib/api';
 import { PRODUCT_LABELS, allowsMultipleDocumentUploads } from '@credpriv/shared';
 import { FileText, Upload, AlertTriangle, Clock, Check, X, Shield } from 'lucide-react';
 import DocumentLink from '@/components/shared/DocumentLink';
+import PrivacyPanel from '@/components/shared/PrivacyPanel';
 
 interface StaffSubtype {
   id: string;
@@ -628,6 +629,8 @@ export default function ProviderDashboard() {
           </div>
         </div>
       )}
+
+      <PrivacyPanel />
     </div>
   );
 }

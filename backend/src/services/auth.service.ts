@@ -6,19 +6,25 @@ import { createAuditLog } from '../middleware/audit';
 import { UserRole } from '@credpriv/shared';
 import { Request } from 'express';
 
+export const PRIVACY_NOTICE_VERSION = process.env.PRIVACY_NOTICE_VERSION || '2026-07-10';
+
 export class AuthService {
   async register(data: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
+    privacyNoticeAccepted?: boolean;
     role?: UserRole;
   }) {
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new AppError(409, 'Email already registered');
 
+    if (!data.privacyNoticeAccepted) {
+      throw new AppError(400, 'You must accept the privacy notice to register');
+    }
+
     const passwordHash = await bcrypt.hash(data.password, 12);
-    // Public registration is provider-only; staff roles are provisioned by admins
     const role = UserRole.PROVIDER;
 
     const user = await prisma.user.create({
@@ -27,16 +33,24 @@ export class AuthService {
         passwordHash,
         firstName: data.firstName,
         lastName: data.lastName,
+        privacyNoticeAccepted: true,
+        consentAt: new Date(),
+        consentVersion: PRIVACY_NOTICE_VERSION,
         roles: { create: { role } },
-        ...(role === UserRole.PROVIDER && {
-          provider: { create: {} },
-        }),
+        provider: { create: {} },
       },
       include: { roles: true, provider: true },
     });
 
     const roles = user.roles.map((r) => r.role as UserRole);
     const token = signToken({ userId: user.id, email: user.email, roles });
+
+    await createAuditLog({
+      action: 'CREATE',
+      entityType: 'User',
+      entityId: user.id,
+      newValue: { email: user.email, consentVersion: PRIVACY_NOTICE_VERSION },
+    });
 
     return {
       user: {
@@ -46,6 +60,7 @@ export class AuthService {
         lastName: user.lastName,
         roles,
         providerId: user.provider?.id,
+        privacyNoticeAccepted: true,
       },
       accessToken: token,
     };
@@ -58,6 +73,10 @@ export class AuthService {
     });
 
     if (!user || !user.isActive) {
+      throw new AppError(401, 'Invalid credentials');
+    }
+
+    if (user.erasureCompletedAt) {
       throw new AppError(401, 'Invalid credentials');
     }
 
@@ -80,6 +99,8 @@ export class AuthService {
         lastName: user.lastName,
         roles,
         providerId: user.provider?.id,
+        privacyNoticeAccepted: user.privacyNoticeAccepted,
+        erasureRequestedAt: user.erasureRequestedAt,
       },
       accessToken: token,
     };
@@ -103,6 +124,10 @@ export class AuthService {
       lastName: user.lastName,
       roles: user.roles.map((r) => r.role),
       provider: user.provider,
+      privacyNoticeAccepted: user.privacyNoticeAccepted,
+      consentAt: user.consentAt,
+      consentVersion: user.consentVersion,
+      erasureRequestedAt: user.erasureRequestedAt,
     };
   }
 }

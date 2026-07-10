@@ -13,7 +13,10 @@ router.get(
   '/provider/:providerId',
   requirePermission('credential.read'),
   asyncHandler(async (req, res) => {
-    const credentials = await credentialService.listByProvider(paramId(req.params.providerId));
+    const providerId = paramId(req.params.providerId);
+    const { assertCanAccessProvider } = await import('../utils/access');
+    await assertCanAccessProvider(req, providerId);
+    const credentials = await credentialService.listByProvider(providerId);
     success(res, credentials);
   })
 );

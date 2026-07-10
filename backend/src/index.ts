@@ -19,6 +19,7 @@ import integrationRoutes from './routes/integration.routes';
 import backgroundVerificationRoutes from './routes/background-verification.routes';
 import notificationRoutes from './routes/notification.routes';
 import departmentRoutes from './routes/department.routes';
+import privacyRoutes from './routes/privacy.routes';
 import { seedStaffCatalog } from './lib/seed-staff-catalog';
 import { securityHeaders } from './middleware/security';
 import { runCredentialExpiryReminders } from './jobs/credential-expiry.job';
@@ -66,6 +67,7 @@ app.get('/health/db', async (_req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/privacy', privacyRoutes);
 app.use('/api/providers', providerRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/credentials', credentialRoutes);

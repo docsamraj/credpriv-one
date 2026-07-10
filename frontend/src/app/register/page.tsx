@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,6 +28,10 @@ export default function RegisterPage() {
       setError('Passwords do not match');
       return;
     }
+    if (!privacyAccepted) {
+      setError('You must accept the privacy notice to create an account');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -34,7 +39,7 @@ export default function RegisterPage() {
         '/api/auth/register',
         {
           method: 'POST',
-          body: { email, password, firstName, lastName },
+          body: { email, password, firstName, lastName, privacyNoticeAccepted: true },
         }
       );
 
@@ -83,7 +88,28 @@ export default function RegisterPage() {
             <label htmlFor="confirmPassword">Confirm password</label>
             <input id="confirmPassword" type="password" className="form-input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} required />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }} disabled={loading}>
+
+          <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.45 }}>
+            <p style={{ marginBottom: '0.5rem' }}>
+              <strong>Privacy notice (DPDP):</strong> We process your personal data (name, email, contact details,
+              identity documents such as Aadhaar/PAN/passport, education and professional credentials) solely for
+              hospital credentialing, privileging, background verification, and related compliance. Data may be
+              accessed by credentialing staff, department heads, and committee members. Optional AI parsing of job
+              descriptions may use a cloud processor — do not upload unnecessary personal data in JD files.
+            </p>
+            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', cursor: 'pointer', color: 'var(--color-text)' }}>
+              <input
+                type="checkbox"
+                checked={privacyAccepted}
+                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                required
+                style={{ marginTop: 3 }}
+              />
+              <span>I have read and accept this privacy notice and consent to processing for credentialing purposes.</span>
+            </label>
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }} disabled={loading || !privacyAccepted}>
             {loading ? 'Creating account…' : 'Register'}
           </button>
         </form>

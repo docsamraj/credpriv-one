@@ -11,7 +11,23 @@ declare global {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+function resolveJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret && secret !== 'dev-secret' && secret.length >= 16) {
+    return secret;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'FATAL: JWT_SECRET must be set to a strong value (16+ chars) in production. Refusing to start with a weak/default secret.'
+    );
+  }
+  if (!secret) {
+    console.warn('WARNING: JWT_SECRET is not set — using insecure dev default. Never use this in production.');
+  }
+  return secret || 'dev-secret';
+}
+
+const JWT_SECRET = resolveJwtSecret();
 
 export function signToken(payload: JwtPayload): string {
   return jwt.sign(payload, JWT_SECRET, {

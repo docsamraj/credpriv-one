@@ -1,4 +1,11 @@
 export default function DemoAccounts() {
+  // Never show shared demo passwords in production unless explicitly enabled
+  const show =
+    process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS === 'true' ||
+    process.env.NODE_ENV !== 'production';
+
+  if (!show) return null;
+
   return (
     <div style={{ marginTop: '1.5rem', fontSize: '0.7rem', color: 'var(--color-text-muted)', textAlign: 'left' }}>
       <p style={{ textAlign: 'center', marginBottom: '0.5rem' }}>Demo accounts — password for all: <strong>Password123!</strong></p>

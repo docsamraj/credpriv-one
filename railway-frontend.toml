@@ -7,8 +7,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# WORKDIR in image is /app/frontend (monorepo standalone layout)
-startCommand = "node server.js"
+# Absolute path — Railway startCommand may not honor Dockerfile WORKDIR
+startCommand = "node /app/frontend/server.js"
 healthcheckPath = "/login"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

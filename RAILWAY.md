@@ -17,11 +17,15 @@ If Root Directory is `backend`, the build fails with `cd ../shared: No such file
 |---------|-------|
 | **Root Directory** | **`/`** (repo root — leave blank or `/`; **NOT** `frontend`) |
 | **Config-as-code** | `railway-frontend.toml` |
-| **Builder** | Nixpacks (recommended) or Dockerfile `Dockerfile.frontend` |
+| **Dockerfile** | `Dockerfile` |
+| **Start command** | `node /app/frontend/server.js` (absolute — monorepo standalone) |
+| **Healthcheck** | `/login` |
 
 The frontend imports `@credpriv/shared`. If Root Directory is `frontend`, the build fails because the shared package is missing.
 
 **If build keeps failing:** open **Settings → General → Root Directory** and delete `frontend` so Railway uses the repo root.
+
+**If healthcheck fails after a green build:** open **Deploy Logs** (not Build Logs). Look for `Cannot find module ... server.js`. See `RCA-CAPA-003-FRONTEND-HEALTHCHECK.md`.
 
 ### Frontend variables
 

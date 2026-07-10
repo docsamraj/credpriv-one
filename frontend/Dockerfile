@@ -32,4 +32,4 @@ WORKDIR /app/frontend
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["node", "/app/frontend/server.js"]

@@ -1,4 +1,4 @@
-# Frontend production image — build from REPO ROOT (Railway Root Directory = /)
+# Frontend image — same as root Dockerfile (keep in sync)
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
@@ -15,7 +15,8 @@ WORKDIR /app/frontend
 ARG RAILWAY_GIT_COMMIT_SHA=local
 ENV NEXT_PUBLIC_BUILD_SHA=$RAILWAY_GIT_COMMIT_SHA
 ENV NODE_OPTIONS=--max-old-space-size=4096
-RUN rm -rf .next && NODE_ENV=production npm run build
+
+RUN rm -rf .next && npm run build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
@@ -25,8 +26,10 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
 COPY --from=builder /app/frontend/.next/standalone ./
-COPY --from=builder /app/frontend/.next/static ./.next/static
-COPY --from=builder /app/frontend/public ./public
+COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
+COPY --from=builder /app/frontend/public ./frontend/public
+
+WORKDIR /app/frontend
 
 EXPOSE 3000
 

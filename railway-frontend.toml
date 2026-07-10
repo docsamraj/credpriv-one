@@ -7,7 +7,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# WORKDIR in image is /app/frontend (monorepo standalone layout)
 startCommand = "node server.js"
 healthcheckPath = "/login"
-healthcheckTimeout = 120
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

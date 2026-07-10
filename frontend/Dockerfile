@@ -1,5 +1,4 @@
 # Monorepo frontend image — Railway must use Root Directory = / (repo root)
-# Config: railway-frontend.toml or Settings → Dockerfile Path = Dockerfile.frontend
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
@@ -26,8 +25,10 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
 COPY --from=builder /app/frontend/.next/standalone ./
-COPY --from=builder /app/frontend/.next/static ./.next/static
-COPY --from=builder /app/frontend/public ./public
+COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
+COPY --from=builder /app/frontend/public ./frontend/public
+
+WORKDIR /app/frontend
 
 EXPOSE 3000
 
